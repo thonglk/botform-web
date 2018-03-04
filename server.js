@@ -31,4 +31,11 @@ app.get('/viewResponse', ({query}, res) => {
         .then(result => res.send(result.data))
         .catch(err => res.status(500).json(err))
 });
+app.get('/getchat', function (req, res) {
+    var params = req.query
+    axios.get('https://jobo-chat.herokuapp.com/getchat', {params})
+        .then(result => res.send(JSON.stringify(result.data, circular()))
+        )
+        .catch(err => res.send(err))
+});
 
