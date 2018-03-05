@@ -15,7 +15,7 @@ app.use(bodyParser.urlencoded({extended: true})); // support encoded bodies
 // http://expressjs.com/en/starter/static-files.html
 app.use(express.static('public'));
 app.use(cors());
-app.use((req, res, next)=> {
+app.use((req, res, next) => {
     res.contentType('application/json');
     next();
 });
@@ -68,20 +68,19 @@ app.get('/viewResponse', ({query}, res) => {
         .then(result => res.send(result.data))
         .catch(err => res.status(500).json(err))
 });
-app.get('/getchat', ({query}, res) => {
+
+app.get('/getchat', ({query}, res) =>
     axios.get('https://jobo-chat.herokuapp.com/getchat', {params: query})
-        .then(result => res.send(result.data)
-        )
-        .catch(err => res.send(err))
-});
+        .then(result => res.send(result.data))
+        .catch(err => res.send(err)));
 
 app.post('/user/update', ({body}, res) => {
-    console.log('body',body)
+    console.log('body', body)
     var user = body
     if (!user.id) res.status(500).json({err: 'no userID'})
 
     user.pageList = user.pageList.map(page => {
-        if(page['$$hashKey']) delete page['$$hashKey']
+        if (page['$$hashKey']) delete page['$$hashKey']
         return page
     })
 
@@ -92,3 +91,16 @@ app.post('/user/update', ({body}, res) => {
 var listener = app.listen(port, function () {
     console.log('Your app is listening on port ' + listener.address().port);
 });
+app.get('/pay',(req,res)=>{
+    axios.post('https://api.pay.truemoney.com.vn/bank-charging/service/v2',{
+        access_key:'clbgp35br12gb6j3oq6h',
+        amount: 1000000,
+        command:"request_transaction",
+        order_id: 'test_50',
+        order_info: 'test order description',
+        return_url: 'https://app.botform.asia/success',
+        signature:'test_signature'
+    }).then(result => res.send(result))
+        .catch(err => res.status(500).json(err))
+
+})
