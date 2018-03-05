@@ -4,7 +4,7 @@
 var firebase = require("firebase-admin");
 var axios = require("axios")
 var cors = require("cors")
-// init project
+var _ = require("underscore")
 var express = require('express');
 var app = express();
 
@@ -74,32 +74,95 @@ app.get('/getchat', ({query}, res) =>
         .then(result => res.send(result.data))
         .catch(err => res.send(err)));
 
-app.post('/user/update', ({body}, res) => {
-    console.log('body', body)
-    var user = body
-    if (!user.id) res.status(500).json({err: 'no userID'})
+app.post('/user/update', ({body}, res) => userUpdate(body).then(result => res.send(result)).catch(err => res.status(500).json(err)));
 
-    user.pageList = user.pageList.map(page => {
-        if (page['$$hashKey']) delete page['$$hashKey']
-        return page
+function userUpdate(body) {
+    return new Promise((resolve, reject) => {
+        console.log('body', body)
+        var user = body
+        if (!user.id) res.status(500).json({err: 'no userID'})
+
+        user.pageList = user.pageList.map(page => {
+            if (page['$$hashKey']) delete page['$$hashKey']
+            return page
+        })
+
+        var promises = user.pageList.map(function (obj) {
+            return getLongLiveToken(obj.access_token)
+                .then(results => {
+                    if (obj['$$hashKey']) delete obj['$$hashKey']
+                    obj.access_token = results.access_token
+                    return obj
+                })
+                .catch(err => {
+                    if (obj['$$hashKey']) delete obj['$$hashKey']
+                    obj.access_token = 'err'
+                    return obj
+                })
+        });
+
+        Promise.all(promises)
+            .then(results => {
+                user.pageList = results
+                usersRef.child(user.id).update(user).then(result => resolve(user)).catch(err => reject(err))
+            })
     })
+}
+app.get('/user/update/all', ({body}, res) => userUpdateAll().then(result => res.send(result)).catch(err => res.status(500).json(err)));
 
-    usersRef.child(user.id).update(user).then(result => res.send(result)).catch(err => res.status(500).json({err}))
-});
+function userUpdateAll() {
+    var toArray = _.toArray(dataUser)
+    return new Promise((resolve, reject) => {
+
+        var promises = toArray.map(function (body) {
+            return userUpdate(body)
+                .then(results => {
+                    return results
+                })
+                .catch(err => {
+                    return err
+                })
+        });
+
+        Promise.all(promises)
+            .then(results => {
+                resolve(results)
+            })
+
+
+    })
+}
+
+
+function getLongLiveToken(shortLiveToken) {
+    console.log('getLongLiveToken-ing', shortLiveToken)
+
+    return new Promise((resolve, reject) => {
+        const url = `https://graph.facebook.com/oauth/access_token?grant_type=fb_exchange_token&client_id=295208480879128&client_secret=4450decf6ea88c391f4100b5740792ae&fb_exchange_token=${shortLiveToken}`;
+        axios.get(url)
+            .then(res => {
+                console.log('getLongLiveToken', res.data)
+                resolve(res.data)
+            })
+            .catch(err => {
+                reject(err.response);
+            });
+    });
+}
 
 
 var listener = app.listen(port, function () {
     console.log('Your app is listening on port ' + listener.address().port);
 });
-app.get('/pay',(req,res)=>{
-    axios.post('https://api.pay.truemoney.com.vn/bank-charging/service/v2',{
-        access_key:'clbgp35br12gb6j3oq6h',
+app.get('/pay', (req, res) => {
+    axios.post('https://api.pay.truemoney.com.vn/bank-charging', {
+        access_key: 'clbgp35br12gb6j3oq6h',
         amount: 1000000,
-        command:"request_transaction",
+        command: "request_transaction",
         order_id: 'test_50',
         order_info: 'test order description',
         return_url: 'https://app.botform.asia/success',
-        signature:'test_signature'
+        signature: 'test_signature'
     }).then(result => res.send(result))
         .catch(err => res.status(500).json(err))
 
