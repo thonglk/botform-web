@@ -82,6 +82,9 @@ function userUpdate(body) {
         var user = body
         if (!user.id) res.status(500).json({err: 'no userID'})
 
+        if(!user.createdAt) user.createdAt = Date.now()
+        user.updatedAt = Date.now()
+
         user.pageList = user.pageList.map(page => {
             if (page['$$hashKey']) delete page['$$hashKey']
             return page
