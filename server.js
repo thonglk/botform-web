@@ -978,7 +978,7 @@ app.get('/paybankButton', ({query}, res) => {
                         "type": "template",
                         "payload": {
                             "template_type": "button",
-                            "text": "Thanh toán bằng thẻ ATM nội địa!",
+                            "text": "Thanh toán bằng thẻ ATM nội địa",
                             "buttons": [
                                 {
                                     "type": "web_url",
