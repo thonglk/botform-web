@@ -934,6 +934,44 @@ function loadBroadCast(pageID) {
 app.get('/loadBroadCast', ({query}, res) => loadBroadCast(query.pageID).then(result => res.send(result)).catch(err => res.status(500).json(err)))
 
 
+function checkSender() {
+    return new Promise(function (resolve, reject) {
+        var users = _.toArray(dataAccount)
+        var i = -1
+        var log = []
+        var error = 0
+        function sendPer() {
+            i++
+            if (i < users.length) {
+                var obj = users[i]
+                sendTypingOn(obj.id, obj.pageID).then(result => {
+                    saveSenderData({sent_error: null}, obj.id, obj.pageID)
+                    log.push(result)
+                    sendPer()
+                }).catch(err => {
+                    saveSenderData({sent_error: err.error.message}, obj.id, obj.pageID)
+                    log.push(err)
+                    error++
+                    sendPer()
+                })
+            } else {
+                console.log('checkSender_done', i, users.length)
+                sendLog('checkSender_done err'+ error +'/'+  users.length)
+
+                resolve(log)
+            }
+
+        }
+
+        sendPer()
+
+
+    })
+}
+app.get('/checkSender', (req, res) => checkSender().then(result => res.send(result)))
+
+
+
 var listener = app.listen(port, function () {
     console.log('Your app is listening on port ' + listener.address().port);
 });
