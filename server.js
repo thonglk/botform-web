@@ -104,7 +104,7 @@ function initDataLoad(ref, store) {
 var DATA = {}
 
 function initData(ref) {
-    if(!DATA[ref]) DATA[ref] ={}
+    if (!DATA[ref]) DATA[ref] = {}
     db.ref(ref).on('child_added', function (snap) {
         DATA[ref][snap.key] = snap.val()
     });
@@ -597,21 +597,7 @@ function buildMessage(blockName, pageID) {
                     if (goto == '-3') {
                         resolve(allMessages)
                     }
-                    else if (goto == '-2') {
-
-                        for (var i in questions) {
-                            q++
-                            console.log('index', q, questions[q][3])
-                            if (questions[q][3] == 8) {
-                                q++
-                                loopMes(q, flow, pageID)
-                                break
-                            }
-
-                        }
-
-                    }
-                    else if (!goto) {
+                    else if (goto == '-2' || !goto) {
 
                         q++
                         loopMes(q, flow, pageID)
@@ -761,7 +747,7 @@ function buildMessage(blockName, pageID) {
                                     array_mes.push(messageSend)
 
                                 }
-
+                                console.log(array_mes)
                                 allMessages = allMessages.concat(array_mes)
 
 
@@ -936,37 +922,46 @@ app.get('/sendBroadCast', ({query}, res) => sendBroadCast(query, query.blockName
 function loadBroadCast(pageID) {
     return new Promise(function (resolve, reject) {
         var broadCast = DATA['broadcast']
-        var res = _.filter(broadCast,cast =>{
-            if(cast.query.page == pageID) return true
+        var res = _.filter(broadCast, cast => {
+            if (cast.query.page == pageID) return true
         })
-        console.log('broadCast',broadCast)
+        console.log('broadCast', broadCast)
         resolve(res)
     })
 
 }
-app.get('/loadBroadCast', ({query}, res) => loadBroadCast(query.pageID).then(result => res.send(result)).catch(err => res.status(500).json(err)))
 
+app.get('/loadBroadCast', ({query}, res) => loadBroadCast(query.pageID).then(result => res.send(result)).catch(err => res.status(500).json(err)))
 
 
 var listener = app.listen(port, function () {
     console.log('Your app is listening on port ' + listener.address().port);
 });
+var circular = require('circular');
 
-app.get('/pay', (req, res) => {
-    axios.post('https://api.pay.truemoney.com.vn/bank-charging', {
-        access_key: 'clbgp35br12gb6j3oq6h',
-        amount: 1000000,
-        command: "request_transaction",
-        order_id: 'test_50',
-        order_info: 'test order description',
-        return_url: 'https://app.botform.asia/success',
-        signature: 'test_signature'
-    }).then(result => res.send(result))
-        .catch(err => res.status(500).json(err))
+var crypto = require('crypto')
+var secret = '6p6sa9oy8ayj8fn1n44kyoxzrk8g4wo0'
+
+
+app.get('/paybank', ({query}, res) => {
+    var order_id = encodeURI('Botform_PRO_1')
+    var order_info = encodeURI('1_month')
+    var amount = 350000
+    if(query.type==6){
+        order_id = encodeURI('Botform_PRO_6')
+        order_info = encodeURI('6_months_get_1_month_free)')
+        amount = 350000*6
+    }
+    var urlParameters = `access_key=clbgp35br12gb6j3oq6h&amount=${amount}&command=request_transaction&order_id=${order_id}&order_info=${order_info}&return_url=https://m.me/160957044542923?ref=go_buy-success`
+    var signature = crypto.createHmac('sha256', secret).update(urlParameters, 'utf8').digest('hex');
+    var fullurl = urlParameters + '&signature=' + signature
+
+    axios.post('https://api.pay.truemoney.com.vn/bank-charging/service/v2?' + fullurl).then(result => res.send(result.data))
+        .catch(err => res.send(JSON.stringify(err, circular())))
 
 })
-var secret = 'abc'
-var urlParameters = 'xue'
-var crypto = require('crypto')
-var signature = crypto.createHmac('sha256', secret).update(urlParameters, 'utf8').digest('hex');
-console.log('signature', signature)
+
+var urlParameters2 = `access_key=clbgp35br12gb6j3oq6h&amount=10000&order_id=test_50&order_info=test_order_description&return_url=https://app.botform.asia/success`
+var signature2 = crypto.createHmac('sha256', secret).update(urlParameters2, 'utf8').digest('hex');
+var fullurl2 = urlParameters2 + '&signature=' + signature2
+
