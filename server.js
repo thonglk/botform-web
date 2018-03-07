@@ -942,26 +942,60 @@ var circular = require('circular');
 var crypto = require('crypto')
 var secret = '6p6sa9oy8ayj8fn1n44kyoxzrk8g4wo0'
 
+function paybank(query) {
+    return new Promise(function (resolve, reject) {
+        var order_id = encodeURI('Botform_PRO_1')
+        var order_info = encodeURI('1_month')
+        var amount = 350000
+        if (query.type == 6) {
+            order_id = encodeURI('Botform_PRO_6')
+            order_info = encodeURI('6_months_get_1_month_free)')
+            amount = 350000 * 6
+        }
+        var urlParameters = `access_key=clbgp35br12gb6j3oq6h&amount=${amount}&command=request_transaction&order_id=${order_id}&order_info=${order_info}&return_url=https://m.me/160957044542923?ref=go_buy-success`
+        var signature = crypto.createHmac('sha256', secret).update(urlParameters, 'utf8').digest('hex');
+        var fullurl = urlParameters + '&signature=' + signature
 
-app.get('/paybank', ({query}, res) => {
-    var order_id = encodeURI('Botform_PRO_1')
-    var order_info = encodeURI('1_month')
-    var amount = 350000
-    if(query.type==6){
-        order_id = encodeURI('Botform_PRO_6')
-        order_info = encodeURI('6_months_get_1_month_free)')
-        amount = 350000*6
-    }
-    var urlParameters = `access_key=clbgp35br12gb6j3oq6h&amount=${amount}&command=request_transaction&order_id=${order_id}&order_info=${order_info}&return_url=https://m.me/160957044542923?ref=go_buy-success`
-    var signature = crypto.createHmac('sha256', secret).update(urlParameters, 'utf8').digest('hex');
-    var fullurl = urlParameters + '&signature=' + signature
+        axios.post('https://api.pay.truemoney.com.vn/bank-charging/service/v2?' + fullurl)
+            .then(result => resolve(result.data))
+            .catch(err => reject(JSON.stringify(err, circular())))
 
-    axios.post('https://api.pay.truemoney.com.vn/bank-charging/service/v2?' + fullurl).then(result => res.send(result.data))
-        .catch(err => res.send(JSON.stringify(err, circular())))
+    })
 
+}
+
+app.get('/paybank', ({query}, res) => paybank(query).then(result => res.send(result))
+    .catch(err => res.status(500).json(err)))
+
+
+app.get('/paybankButton', ({query}, res) => {
+
+    paybank(query).then(result => {
+        var send = {
+            "messages": [
+                {
+                    "attachment": {
+                        "type": "template",
+                        "payload": {
+                            "template_type": "button",
+                            "text": "Thanh toán bằng thẻ ATM nội địa!",
+                            "buttons": [
+                                {
+                                    "type": "web_url",
+                                    "url": result.pay_url,
+                                    "title": "Thanh toán thẻ ATM"
+                                }
+                            ]
+                        }
+                    }
+                }
+            ]
+        }
+        res.send(send)
+
+
+    }).catch(err => res.status(500).json(err))
 })
-
-app.get('/paybankButton')
 
 var urlParameters2 = `access_key=clbgp35br12gb6j3oq6h&amount=10000&order_id=test_50&order_info=test_order_description&return_url=https://app.botform.asia/success`
 var signature2 = crypto.createHmac('sha256', secret).update(urlParameters2, 'utf8').digest('hex');
