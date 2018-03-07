@@ -961,6 +961,8 @@ app.get('/paybank', ({query}, res) => {
 
 })
 
+app.get('/paybankButton')
+
 var urlParameters2 = `access_key=clbgp35br12gb6j3oq6h&amount=10000&order_id=test_50&order_info=test_order_description&return_url=https://app.botform.asia/success`
 var signature2 = crypto.createHmac('sha256', secret).update(urlParameters2, 'utf8').digest('hex');
 var fullurl2 = urlParameters2 + '&signature=' + signature2
