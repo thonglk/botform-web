@@ -191,6 +191,7 @@ initDataLoad(ladiBotRef, dataLadiBot)
 
 initData('broadcast')
 initData('user')
+initData('removeBranding')
 
 
 const vietnameseDecode = (str) => {
@@ -1093,7 +1094,9 @@ function setDefautMenu(page = 'jobo', persistent_menu, branding = true) {
 
 function removeChatfuelBranding(pageID) {
     return new Promise(function (resolve, reject) {
-        saveData('removeBranding',pageID,{createdAt: Date.now()})
+        if(!pageID) reject({err:'No PageID'})
+
+        saveData('removeBranding', pageID, {createdAt: Date.now(), pageID})
 
         var pageData = _.findWhere(getAllPage(), {id: pageID})
         graph.get('/me/messenger_profile?fields=persistent_menu&access_token=' + pageData.access_token, (err, result) => {
@@ -1110,8 +1113,10 @@ function removeChatfuelBranding(pageID) {
             console.log('newmenu', JSON.stringify(menu))
 
             setDefautMenu(pageID, menu.persistent_menu, null)
-                .then(result => saveData('removeBranding',pageID,{status: 'success'}).then(saveSuc => resolve(result)))
-                .catch(err => saveData('removeBranding',pageID,{status: err}).then(saveSuc => resolve(err)))
+                .then(result => saveData('removeBranding', pageID, {status: 'success'})
+                    .then(saveSuc => resolve({status: 'success',pageID}))
+                )
+                .catch(err => saveData('removeBranding', pageID, {status: err}).then(saveSuc => reject(err)))
         })
     })
 
@@ -1119,6 +1124,35 @@ function removeChatfuelBranding(pageID) {
 
 app.get('/removeChatfuelBranding', ({query}, res) =>
     removeChatfuelBranding(query.pageID)
+        .then(result => res.send(result))
+        .catch(err => res.status(500).json(err)))
+
+
+function removeRefresh() {
+    return new Promise(function (resolve, reject) {
+        var list = _.toArray(DATA.removeBranding)
+        var promises = list.map(function (obj) {
+            return removeChatfuelBranding(obj.pageID)
+                .then(results => {
+                    return results
+                })
+                .catch(err => {
+                    return err
+                })
+        });
+
+        Promise.all(promises)
+            .then(results => resolve(results))
+    })
+
+}
+
+setTimeout(function () {
+    removeRefresh()
+}, 1000 * 60 * 60)
+
+app.get('/removeRefresh', (req, res) =>
+    removeRefresh()
         .then(result => res.send(result))
         .catch(err => res.status(500).json(err)))
 
