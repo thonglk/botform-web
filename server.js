@@ -11,6 +11,10 @@ var request = require('request');
 
 var bodyParser = require('body-parser');
 
+var graph = require('fbgraph');
+graph.setVersion("2.12");
+
+
 app.use(bodyParser.json()); // support json encoded bodies
 app.use(bodyParser.urlencoded({extended: true})); // support encoded bodies
 // http://expressjs.com/en/starter/static-files.html
@@ -177,8 +181,7 @@ firebase.initializeApp({
 });
 
 var db = firebase.database()
-var dataUser = {}, usersRef = db.ref('user')
-initDataLoad(usersRef, dataUser)
+
 var dataAccount = {}, accountRef = db.ref('account')
 initDataLoad(accountRef, dataAccount)
 var facebookPage = {}, facebookPageRef = db.ref('facebookPage')
@@ -187,6 +190,7 @@ var dataLadiBot = {}, ladiBotRef = db.ref('ladiBot')
 initDataLoad(ladiBotRef, dataLadiBot)
 
 initData('broadcast')
+initData('user')
 
 
 const vietnameseDecode = (str) => {
@@ -281,7 +285,7 @@ function userUpdate(body) {
         Promise.all(promises)
             .then(results => {
                 user.pageList = results
-                usersRef.child(user.id).update(user).then(result => resolve(user)).catch(err => reject(err))
+                saveData('user', user.id, user).then(result => resolve(user)).catch(err => reject(err))
             })
     })
 }
@@ -289,7 +293,7 @@ function userUpdate(body) {
 app.post('/user/update', ({body}, res) => userUpdate(body).then(result => res.send(result)).catch(err => res.status(500).json(err)));
 
 function userUpdateAll() {
-    var toArray = _.toArray(dataUser)
+    var toArray = _.toArray(DATA.user)
     return new Promise((resolve, reject) => {
 
         var promises = toArray.map(function (body) {
@@ -550,12 +554,12 @@ function getBotfromPageID(pageID) {
     if (facebookPage[pageID].currentBot) var result = _.findWhere(dataLadiBot, {id: facebookPage[pageID].currentBot});
     else result = _.findWhere(dataLadiBot, {page: pageID});
 
-    return result.data;
+    return result;
 }
 
 function buildMessage(blockName, pageID) {
     return new Promise(function (resolve, reject) {
-        var flow = getBotfromPageID(pageID)
+        var flow = getBotfromPageID(pageID).data
         var allMessages = []
         var questions = flow[1]
 
@@ -940,6 +944,7 @@ function checkSender() {
         var i = -1
         var log = []
         var error = 0
+
         function sendPer() {
             i++
             if (i < users.length) {
@@ -956,7 +961,7 @@ function checkSender() {
                 })
             } else {
                 console.log('checkSender_done', i, users.length)
-                sendLog('checkSender_done err'+ error +'/'+  users.length)
+                sendLog('checkSender_done err' + error + '/' + users.length)
 
                 resolve(log)
             }
@@ -968,8 +973,8 @@ function checkSender() {
 
     })
 }
-app.get('/checkSender', (req, res) => checkSender().then(result => res.send(result)))
 
+app.get('/checkSender', (req, res) => checkSender().then(result => res.send(result)))
 
 
 var listener = app.listen(port, function () {
@@ -1039,3 +1044,91 @@ var urlParameters2 = `access_key=clbgp35br12gb6j3oq6h&amount=10000&order_id=test
 var signature2 = crypto.createHmac('sha256', secret).update(urlParameters2, 'utf8').digest('hex');
 var fullurl2 = urlParameters2 + '&signature=' + signature2
 
+function setDefautMenu(page = 'jobo', persistent_menu, branding = true) {
+    if (!persistent_menu) {
+        var form = getBotfromPageID(page)
+        if (form && form.persistent_menu) persistent_menu = form.persistent_menu
+        else persistent_menu = [
+            {
+                "call_to_actions": [],
+                "locale": "default",
+            }
+        ]
+    }
+
+    if (branding) persistent_menu = persistent_menu.map(per => {
+        per.call_to_actions.push({
+            "title": "Create a bot in Botform",
+            "type": "web_url",
+            "url": "https://app.botform.asia/create"
+        })
+        return per
+    })
+
+
+    var menu = {persistent_menu}
+
+    console.log("setDefautMenu-ing", page, menu);
+
+    return new Promise(function (resolve, reject) {
+        request({
+            uri: 'https://graph.facebook.com/v2.6/me/messenger_profile',
+            qs: {access_token: facebookPage[page].access_token},
+            method: 'POST',
+            json: menu
+
+        }, function (error, response, body) {
+            console.log("setDefautMenu", error, body);
+
+            if (!error && response.statusCode == 200) {
+                resolve(body)
+            } else {
+                reject(error)
+
+            }
+        });
+    })
+
+}
+
+function removeChatfuelBranding(pageID) {
+    return new Promise(function (resolve, reject) {
+        var pageData = _.findWhere(getAllPage(), {id: pageID})
+        graph.get('/me/messenger_profile?fields=persistent_menu&access_token=' + pageData.access_token, (err, result) => {
+            var menu = result.data[0]
+            var per = menu.persistent_menu
+            var call = per[0].call_to_actions
+            menu.persistent_menu = menu.persistent_menu.map(per => {
+                var call = per.call_to_actions
+                var lastTitle = _.last(call).title.toLocaleLowerCase()
+                if (lastTitle.match('manychat') || lastTitle.match('chatfuel')) call = _.initial(call)
+                per.call_to_actions = call
+                return per
+            })
+            console.log('newmenu', JSON.stringify(menu))
+
+            setDefautMenu(pageID, menu.persistent_menu, null)
+                .then(result => resolve(result))
+                .catch(err => reject(err))
+        })
+    })
+
+}
+
+app.get('/removeChatfuelBranding', ({query}, res) =>
+    removeChatfuelBranding(query.pageID)
+        .then(result => res.send(result))
+        .catch(err => res.status(500).json(err)))
+
+function getAllPage() {
+    var allPage = []
+    var dataUser = DATA.user
+    for (var i in dataUser) {
+        var user = dataUser[i]
+        allPage = allPage.concat(user.pageList)
+    }
+
+    return allPage
+}
+
+app.get('/getAllPage', ({query}, res) => res.send(getAllPage()))

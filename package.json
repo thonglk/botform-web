@@ -15,6 +15,7 @@
     "circular": "^1.0.5",
     "cors": "^2.8.1",
     "express": "^4.16.2",
+    "fbgraph": "^1.4.1",
     "firebase-admin": "^4.1.1",
     "mongodb": "^2.2.33",
     "request": "^2.72.0",
