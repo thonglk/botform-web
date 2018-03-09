@@ -1084,7 +1084,7 @@ function setDefautMenu(page = 'jobo', persistent_menu, branding = true) {
             if (!error && response.statusCode == 200) {
                 resolve(body)
             } else {
-                reject(error)
+                reject(body)
 
             }
         });
@@ -1100,9 +1100,9 @@ function removeChatfuelBranding(pageID) {
 
         var pageData = _.findWhere(getAllPage(), {id: pageID})
         graph.get('/me/messenger_profile?fields=persistent_menu&access_token=' + pageData.access_token, (err, result) => {
+            console.log('persistent_menu',JSON.stringify(result.data))
             var menu = result.data[0]
-            var per = menu.persistent_menu
-            var call = per[0].call_to_actions
+
             menu.persistent_menu = menu.persistent_menu.map(per => {
                 var call = per.call_to_actions
                 var lastTitle = _.last(call).title.toLocaleLowerCase()
