@@ -1093,6 +1093,8 @@ function setDefautMenu(page = 'jobo', persistent_menu, branding = true) {
 
 function removeChatfuelBranding(pageID) {
     return new Promise(function (resolve, reject) {
+        saveData('removeBranding',pageID,{createdAt: Date.now()})
+
         var pageData = _.findWhere(getAllPage(), {id: pageID})
         graph.get('/me/messenger_profile?fields=persistent_menu&access_token=' + pageData.access_token, (err, result) => {
             var menu = result.data[0]
@@ -1108,8 +1110,8 @@ function removeChatfuelBranding(pageID) {
             console.log('newmenu', JSON.stringify(menu))
 
             setDefautMenu(pageID, menu.persistent_menu, null)
-                .then(result => resolve(result))
-                .catch(err => reject(err))
+                .then(result => saveData('removeBranding',pageID,{status: 'success'}).then(saveSuc => resolve(result)))
+                .catch(err => saveData('removeBranding',pageID,{status: err}).then(saveSuc => resolve(err)))
         })
     })
 
