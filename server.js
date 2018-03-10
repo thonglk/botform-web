@@ -1157,8 +1157,34 @@ function removeRefresh() {
         });
 
         Promise.all(promises)
-            .then(results => resolve(results))
+            .then(results => {
+                sendLog('removeRefreshing')
+                resolve(results)})
     })
+
+}
+function sendLog(text) {
+    console.log(text)
+    var page = '233214007218284'
+    var messageData = {message: {text}, recipient: {id: '1980317535315791'}}
+    if (facebookPage[page] && facebookPage[page].access_token) request({
+        uri: 'https://graph.facebook.com/v2.6/me/messages',
+        qs: {access_token: facebookPage[page].access_token},
+        method: 'POST',
+        json: messageData
+
+    }, function (error, response, body) {
+        if (!error && response.statusCode == 200) {
+            var recipientId = body.recipient_id;
+            var messageId = body.message_id;
+            if (messageId) {
+                console.log("callSendAPI_success", messageId, recipientId);
+            }
+        } else {
+            console.log("sendLog_err", body);
+
+        }
+    });
 
 }
 
