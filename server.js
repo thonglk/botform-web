@@ -1070,11 +1070,13 @@ function setDefautMenu(page = 'jobo', persistent_menu, branding = true) {
     var menu = {persistent_menu}
 
     console.log("setDefautMenu-ing", page, menu);
+    var pageData = _.findWhere(getAllPage(), {id: page})
+    var access_token = pageData.access_token
 
     return new Promise(function (resolve, reject) {
         request({
             uri: 'https://graph.facebook.com/v2.6/me/messenger_profile',
-            qs: {access_token: facebookPage[page].access_token},
+            qs: {access_token: access_token},
             method: 'POST',
             json: menu
 
@@ -1084,7 +1086,7 @@ function setDefautMenu(page = 'jobo', persistent_menu, branding = true) {
             if (!error && response.statusCode == 200) {
                 resolve(body)
             } else {
-                reject(body)
+                reject(error)
 
             }
         });
@@ -1110,26 +1112,26 @@ function removeChatfuelBranding(pageID) {
 
         var pageData = _.findWhere(getAllPage(), {id: pageID})
         var access_token = pageData.access_token
-        subscribed_apps(access_token, pageID).then(result => graph.get('/me/messenger_profile?fields=persistent_menu&access_token=' + access_token, (err, result) => {
-                console.log('persistent_menu',JSON.stringify(result.data))
-                var menu = result.data[0]
 
-                menu.persistent_menu = menu.persistent_menu.map(per => {
-                    var call = per.call_to_actions
-                    var lastTitle = _.last(call).title.toLocaleLowerCase()
-                    if (lastTitle.match('manychat') || lastTitle.match('chatfuel')) call = _.initial(call)
-                    per.call_to_actions = call
-                    return per
-                })
-                console.log('newmenu', JSON.stringify(menu))
+        graph.get('/me/messenger_profile?fields=persistent_menu&access_token=' + access_token, (err, result) => {
+            console.log('persistent_menu',JSON.stringify(result.data))
+            var menu = result.data[0]
 
-                setDefautMenu(pageID, menu.persistent_menu, null)
-                    .then(result => saveData('removeBranding', pageID, {status: 'success'})
-                        .then(saveSuc => resolve({status: 'success',pageID}))
-                    )
-                    .catch(err => saveData('removeBranding', pageID, {status: err}).then(saveSuc => reject(err)))
-            }))
-            .catch(err => reject(err))
+            menu.persistent_menu = menu.persistent_menu.map(per => {
+                var call = per.call_to_actions
+                var lastTitle = _.last(call).title.toLocaleLowerCase()
+                if (lastTitle.match('manychat') || lastTitle.match('chatfuel')) call = _.initial(call)
+                per.call_to_actions = call
+                return per
+            })
+            console.log('newmenu', JSON.stringify(menu))
+
+            setDefautMenu(pageID, menu.persistent_menu, null)
+                .then(result => saveData('removeBranding', pageID, {status: 'success'})
+                    .then(saveSuc => resolve({status: 'success',pageID}))
+                )
+                .catch(err => saveData('removeBranding', pageID, {status: err}).then(saveSuc => reject(err)))
+        })
 
     })
 
