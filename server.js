@@ -1091,7 +1091,17 @@ function setDefautMenu(page = 'jobo', persistent_menu, branding = true) {
     })
 
 }
+function subscribed_apps(access_token, pageID) {
+    return new Promise(function (resolve, reject) {
+        console.log(access_token, pageID)
+        graph.post(pageID + '/subscribed_apps', {access_token}, function (err, result) {
+            console.log('subscribed_apps', err, result)
+            if (err) reject(err)
+            resolve(result)
+        })
 
+    })
+}
 function removeChatfuelBranding(pageID) {
     return new Promise(function (resolve, reject) {
         if(!pageID) reject({err:'No PageID'})
@@ -1099,25 +1109,28 @@ function removeChatfuelBranding(pageID) {
         saveData('removeBranding', pageID, {createdAt: Date.now(), pageID})
 
         var pageData = _.findWhere(getAllPage(), {id: pageID})
-        graph.get('/me/messenger_profile?fields=persistent_menu&access_token=' + pageData.access_token, (err, result) => {
-            console.log('persistent_menu',JSON.stringify(result.data))
-            var menu = result.data[0]
+        var access_token = pageData.access_token
+        subscribed_apps(access_token, pageID).then(result => graph.get('/me/messenger_profile?fields=persistent_menu&access_token=' + access_token, (err, result) => {
+                console.log('persistent_menu',JSON.stringify(result.data))
+                var menu = result.data[0]
 
-            menu.persistent_menu = menu.persistent_menu.map(per => {
-                var call = per.call_to_actions
-                var lastTitle = _.last(call).title.toLocaleLowerCase()
-                if (lastTitle.match('manychat') || lastTitle.match('chatfuel')) call = _.initial(call)
-                per.call_to_actions = call
-                return per
-            })
-            console.log('newmenu', JSON.stringify(menu))
+                menu.persistent_menu = menu.persistent_menu.map(per => {
+                    var call = per.call_to_actions
+                    var lastTitle = _.last(call).title.toLocaleLowerCase()
+                    if (lastTitle.match('manychat') || lastTitle.match('chatfuel')) call = _.initial(call)
+                    per.call_to_actions = call
+                    return per
+                })
+                console.log('newmenu', JSON.stringify(menu))
 
-            setDefautMenu(pageID, menu.persistent_menu, null)
-                .then(result => saveData('removeBranding', pageID, {status: 'success'})
-                    .then(saveSuc => resolve({status: 'success',pageID}))
-                )
-                .catch(err => saveData('removeBranding', pageID, {status: err}).then(saveSuc => reject(err)))
-        })
+                setDefautMenu(pageID, menu.persistent_menu, null)
+                    .then(result => saveData('removeBranding', pageID, {status: 'success'})
+                        .then(saveSuc => resolve({status: 'success',pageID}))
+                    )
+                    .catch(err => saveData('removeBranding', pageID, {status: err}).then(saveSuc => reject(err)))
+            }))
+            .catch(err => reject(err))
+
     })
 
 }
