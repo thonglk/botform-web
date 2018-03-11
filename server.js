@@ -1197,7 +1197,7 @@ function sendLog(text) {
 
 }
 
-setTimeout(function () {
+setInterval(function () {
     removeRefresh()
 }, 1000 * 60 * 60)
 
