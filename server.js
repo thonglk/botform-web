@@ -30,7 +30,7 @@ app.get("/", function (request, response) {
 });
 
 // listen for requests :)
-var port = process.env.PORT || 1235
+var port = process.env.PORT || 1234
 
 
 _.templateSettings = {
@@ -243,7 +243,7 @@ function viewResponse(query) {
     });
     count.total = data.length
 
-    return {count, data}
+    return {count, data, pageData: DATA.facebookPage[query.page], bot: getBotfromPageID(query.page)}
 }
 
 app.get('/viewResponse', ({query}, res) => res.send(viewResponse(query)))
