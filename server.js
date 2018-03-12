@@ -30,7 +30,7 @@ app.get("/", function (request, response) {
 });
 
 // listen for requests :)
-var port = process.env.PORT || 1234
+var port = process.env.PORT || 1235
 
 
 _.templateSettings = {
@@ -216,39 +216,37 @@ const vietnameseDecode = (str) => {
 }
 
 function viewResponse(query) {
-    return new Promise(function (resolve, reject) {
-        console.log('query', query)
-        var dataFilter = _.filter(dataAccount, account => {
+    console.log('query', query)
+    var dataFilter = _.filter(dataAccount, account => {
 
-            if (
-                (account.pageID == query.page || !query.page)
-                && ((account.full_name && account.full_name.toLocaleLowerCase().match(query.full_name)) || !query.full_name)
-                && ((account.ref && account.ref.match(query.ref)) || !query.ref)
-                && ((account.gender && account.gender.match(query.gender)) || !query.gender)
-                && ((account.locale && account.locale.match(query.locale)) || !query.locale)
-                && ((account.createdAt && account.createdAt > new Date(query.createdAt_from).getTime()) || !query.createdAt_from)
-                && ((account.createdAt && account.createdAt < new Date(query.createdAt_to).getTime()) || !query.createdAt_to)
-                && ((account.lastActive && account.lastActive > new Date(query.lastActive_from).getTime()) || !query.lastActive_from)
-                && ((account.lastActive && account.lastActive < new Date(query.lastActive_to).getTime()) || !query.lastActive_to)
-            ) return true
-            else return false
+        if (
+            (account.pageID == query.page || !query.page)
+            && ((account.full_name && account.full_name.toLocaleLowerCase().match(query.full_name)) || !query.full_name)
+            && ((account.ref && account.ref.match(query.ref)) || !query.ref)
+            && ((account.gender && account.gender.match(query.gender)) || !query.gender)
+            && ((account.locale && account.locale.match(query.locale)) || !query.locale)
+            && ((account.createdAt && account.createdAt > new Date(query.createdAt_from).getTime()) || !query.createdAt_from)
+            && ((account.createdAt && account.createdAt < new Date(query.createdAt_to).getTime()) || !query.createdAt_to)
+            && ((account.lastActive && account.lastActive > new Date(query.lastActive_from).getTime()) || !query.lastActive_from)
+            && ((account.lastActive && account.lastActive < new Date(query.lastActive_to).getTime()) || !query.lastActive_to)
+        ) return true
+        else return false
 
-        });
-        var data = _.sortBy(dataFilter, function (data) {
-            if (data.lastActive) {
-                return -data.lastActive
-            } else return 0
-        })
-        var count = _.countBy(data, function (num) {
-            if (num.sent_error) return 'sent_error'
-        });
-        count.total = data.length
-
-        resolve({count, data})
+    });
+    var data = _.sortBy(dataFilter, function (data) {
+        if (data.lastActive) {
+            return -data.lastActive
+        } else return 0
     })
+    var count = _.countBy(data, function (num) {
+        if (num.sent_error) return 'sent_error'
+    });
+    count.total = data.length
+
+    return {count, data}
 }
 
-app.get('/viewResponse', ({query}, res) => viewResponse(query).then(result => res.send(result)).catch(err => res.status(500).json(err)))
+app.get('/viewResponse', ({query}, res) => res.send(viewResponse(query)))
 
 app.get('/getchat', ({query}, res) =>
     axios.get('https://jobo-chat.herokuapp.com/getchat', {params: query})
@@ -369,7 +367,7 @@ function sendOne(messageData, page) {
     return new Promise(function (resolve, reject) {
         messageData.tag = 'NON_PROMOTIONAL_SUBSCRIPTION'
 
-        if(!DATA.facebookPage[page] || !DATA.facebookPage[page].access_token) {
+        if (!DATA.facebookPage[page] || !DATA.facebookPage[page].access_token) {
             console.log("send_error_access-token", page, messageData);
             reject({err: 'no access token'})
         }
@@ -391,7 +389,7 @@ function sendOne(messageData, page) {
                 resolve(messageData)
 
             } else {
-                sendLog("callSendAPI_error:" + JSON.stringify(body) + '\n page: ' + DATA.facebookPage[page].name+'\n Message:' + JSON.stringify(messageData))
+                sendLog("callSendAPI_error:" + JSON.stringify(body) + '\n page: ' + DATA.facebookPage[page].name + '\n Message:' + JSON.stringify(messageData))
                 reject(body)
             }
         });
@@ -401,7 +399,7 @@ function sendOne(messageData, page) {
 
 function callSendAPI(messageData, page = 'jobo') {
     return new Promise(function (resolve, reject) {
-        if(!messageData) reject({err: 'No Message'})
+        if (!messageData) reject({err: 'No Message'})
         if (messageData.message && messageData.message.text && messageData.message.text.length > 640) {
             console.log('messageData.message.text.length', messageData.message.text.length)
             var longtext = messageData.message.text
@@ -890,39 +888,39 @@ function sendBroadCast(query, blockName) {
         var broadCast = {query, blockName, createdAt: Date.now(), id: Date.now()}
         saveData('broadcast', broadCast.id, broadCast)
         buildMessage(blockName, pageID)
-            .then(messages => viewResponse(query)
-                .then(result => {
-                    var users = result.data
-                    var i = -1
-                    var success = 0
-                    var log = []
+            .then(messages => {
+                var result = viewResponse(query)
+                var users = result.data
+                var i = -1
+                var success = 0
+                var log = []
 
-                    function sendPer() {
-                        i++
-                        if (i < users.length) {
-                            var obj = users[i]
-                            sendMessages(obj.id, messages, null, pageID).then(result => setTimeout(() => {
-                                success++
-                                log.push({success: obj.id})
+                function sendPer() {
+                    i++
+                    if (i < users.length) {
+                        var obj = users[i]
+                        sendMessages(obj.id, messages, null, pageID).then(result => setTimeout(() => {
+                            success++
+                            log.push({success: obj.id})
+                            sendPer()
+                        }, 1000))
+                            .catch(err => {
+                                log.push({err})
                                 sendPer()
-                            }, 1000))
-                                .catch(err => {
-                                    log.push({err})
-                                    sendPer()
-                                })
-                        } else {
-                            console.log('sendBroadCast_done', i, users.length)
-                            broadCast.total = users.length
-                            broadCast.sent = success
-                            saveData('broadcast', broadCast.id, broadCast)
-                                .then(result => resolve(broadCast))
-                                .catch(err => reject(err))
-                        }
-
+                            })
+                    } else {
+                        console.log('sendBroadCast_done', i, users.length)
+                        broadCast.total = users.length
+                        broadCast.sent = success
+                        saveData('broadcast', broadCast.id, broadCast)
+                            .then(result => resolve(broadCast))
+                            .catch(err => reject(err))
                     }
 
-                    sendPer()
-                }))
+                }
+
+                sendPer()
+            })
     })
 
 }
@@ -1225,8 +1223,32 @@ function getAllPage() {
 }
 
 app.get('/getAllPage', ({query}, res) => res.send(getAllPage()))
+
 /// Analytics
 
-function Analytics(page) {
-    viewResponse({page})
+function analytics(pageID, day = 1, ago = 0) {
+    var end = Date.now() - 1000 * 60 * 60 * 24 * ago
+    var start = end - 1000 * 60 * 60 * 24 * day
+
+    var lastActive = viewResponse({page: pageID, lastActive_from: start, lastActive_to: end}).count.total
+
+    var filter = viewResponse({page: pageID, createdAt_from: start, createdAt_to: end})
+
+    var createAt = filter.count.total
+    var send_error = filter.count.sent_error
+
+    var ref = {}
+    var count = _.each(filter, num => {
+        if (num.ref) {
+            if (ref[num.ref]) ref[num.ref]++
+            else ref[num.ref] = 1
+        }
+    });
+
+
+    return {lastActive, createAt, send_error, ref, start, end}
+
 }
+
+app.get('/analytics', ({query}, res) => res.send(analytics(query.pageID, query.day, query.ago)))
+
