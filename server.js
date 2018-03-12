@@ -184,14 +184,15 @@ var db = firebase.database()
 
 var dataAccount = {}, accountRef = db.ref('account')
 initDataLoad(accountRef, dataAccount)
-var facebookPage = {}, facebookPageRef = db.ref('facebookPage')
-initDataLoad(facebookPageRef, facebookPage)
+
 var dataLadiBot = {}, ladiBotRef = db.ref('ladiBot')
 initDataLoad(ladiBotRef, dataLadiBot)
 
 initData('broadcast')
 initData('user')
 initData('removeBranding')
+
+initData('facebookPage')
 
 
 const vietnameseDecode = (str) => {
@@ -366,38 +367,41 @@ function sendMessageNoSave(senderID, messages, typing, pageID, metadata) {
 
 function sendOne(messageData, page) {
     return new Promise(function (resolve, reject) {
-        if (facebookPage[page] && facebookPage[page].access_token) {
-            request({
-                uri: 'https://graph.facebook.com/v2.6/me/messages',
-                qs: {access_token: facebookPage[page].access_token},
-                method: 'POST',
-                json: messageData
+        messageData.tag = 'NON_PROMOTIONAL_SUBSCRIPTION'
 
-            }, function (error, response, body) {
-                if (!error && response.statusCode == 200) {
-                    var recipientId = body.recipient_id;
-                    var messageId = body.message_id;
-                    if (messageId) {
-                        console.log("callSendAPI_success", messageId, recipientId);
-                    }
-                    resolve(messageData)
-
-                } else {
-                    sendLog("callSendAPI_error " + JSON.stringify(body) + JSON.stringify(messageData))
-                    reject(body)
-                }
-            });
-        } else {
-            console.error("send_error_access-token", page, messageData);
+        if(!DATA.facebookPage[page] || !DATA.facebookPage[page].access_token) {
+            console.log("send_error_access-token", page, messageData);
             reject({err: 'no access token'})
         }
+
+
+        request({
+            uri: 'https://graph.facebook.com/v2.6/me/messages',
+            qs: {access_token: DATA.facebookPage[page].access_token},
+            method: 'POST',
+            json: messageData
+
+        }, function (error, response, body) {
+            if (!error && response.statusCode == 200) {
+                var recipientId = body.recipient_id;
+                var messageId = body.message_id;
+                if (messageId) {
+                    console.log("callSendAPI_success", messageId, recipientId);
+                }
+                resolve(messageData)
+
+            } else {
+                sendLog("callSendAPI_error:" + JSON.stringify(body) + '\n page: ' + DATA.facebookPage[page].name+'\n Message:' + JSON.stringify(messageData))
+                reject(body)
+            }
+        });
 
     })
 }
 
 function callSendAPI(messageData, page = 'jobo') {
     return new Promise(function (resolve, reject) {
-
+        if(!messageData) reject({err: 'No Message'})
         if (messageData.message && messageData.message.text && messageData.message.text.length > 640) {
             console.log('messageData.message.text.length', messageData.message.text.length)
             var longtext = messageData.message.text
@@ -454,7 +458,8 @@ function sendTypingOff(recipientId, page = 'jobo') {
             sender_action: "typing_off"
         };
 
-        callSendAPI(messageData, page).then(result => resolve(result))
+        callSendAPI(messageData, page)
+            .then(result => resolve(result))
             .catch(err => reject(err));
     })
 }
@@ -528,9 +533,9 @@ function sendLog(text) {
     console.log(text)
     var page = '233214007218284'
     var messageData = {message: {text}, recipient: {id: '1980317535315791'}}
-    if (facebookPage[page] && facebookPage[page].access_token) request({
+    if (DATA.facebookPage[page] && DATA.facebookPage[page].access_token) request({
         uri: 'https://graph.facebook.com/v2.6/me/messages',
-        qs: {access_token: facebookPage[page].access_token},
+        qs: {access_token: DATA.facebookPage[page].access_token},
         method: 'POST',
         json: messageData
 
@@ -552,7 +557,7 @@ function sendLog(text) {
 
 function getBotfromPageID(pageID) {
 
-    if (facebookPage[pageID].currentBot) var result = _.findWhere(dataLadiBot, {id: facebookPage[pageID].currentBot});
+    if (DATA.facebookPage[pageID].currentBot) var result = _.findWhere(dataLadiBot, {id: DATA.facebookPage[pageID].currentBot});
     else result = _.findWhere(dataLadiBot, {page: pageID});
 
     return result;
@@ -949,6 +954,8 @@ function checkSender() {
         function sendPer() {
             i++
             if (i < users.length) {
+                console.log(`checkSender ${i}/${users.length}`)
+
                 var obj = users[i]
                 sendTypingOn(obj.id, obj.pageID).then(result => {
                     saveSenderData({sent_error: null}, obj.id, obj.pageID)
@@ -1176,9 +1183,9 @@ function sendLog(text) {
     console.log(text)
     var page = '233214007218284'
     var messageData = {message: {text}, recipient: {id: '1980317535315791'}}
-    if (facebookPage[page] && facebookPage[page].access_token) request({
+    if (DATA.facebookPage[page] && DATA.facebookPage[page].access_token) request({
         uri: 'https://graph.facebook.com/v2.6/me/messages',
-        qs: {access_token: facebookPage[page].access_token},
+        qs: {access_token: DATA.facebookPage[page].access_token},
         method: 'POST',
         json: messageData
 
@@ -1218,3 +1225,8 @@ function getAllPage() {
 }
 
 app.get('/getAllPage', ({query}, res) => res.send(getAllPage()))
+/// Analytics
+
+function Analytics(page) {
+    viewResponse({page})
+}
