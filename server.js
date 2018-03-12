@@ -285,6 +285,8 @@ function userUpdate(body) {
         Promise.all(promises)
             .then(results => {
                 user.pageList = results
+
+
                 saveData('user', user.id, user).then(result => resolve(user)).catch(err => reject(err))
             })
     })
@@ -331,7 +333,68 @@ function getLongLiveToken(shortLiveToken) {
     });
 }
 
-app.get('/user/update/all', ({body}, res) => userUpdateAll().then(result => res.send(result)).catch(err => res.status(500).json(err)));
+function getFullPageInfo(pageID, access_token) {
+    return new Promise((resolve, reject) => {
+        graph.get('/me/?fields=name,id,fan_count,roles,location&access_token=' + access_token, (err, result) => {
+            if (err || result.message) reject(err)
+            saveData('facebookPage', pageID, result).then(result => resolve(result)).catch(err => reject(err))
+
+
+        })
+    })
+
+
+}
+function getFullaPageAll(pageList) {
+    return new Promise((resolve, reject) => {
+
+        var promises = pageList.map(function (body) {
+            return getFullPageInfo(body.id, body.access_token)
+                .then(results => {
+                    return results
+                })
+                .catch(err => {
+                    return err
+                })
+        });
+
+        Promise.all(promises)
+            .then(results => {
+                resolve(results)
+            })
+
+
+    })
+}
+
+app.get('/getFullPageInfo', ({query}, res) => getFullPageInfo(query.pageID, DATA.facebookPage[query.pageID].access_token).then(result => res.send(result)).catch(err => res.status(500).json(err)));
+
+app.get('/getFullPageAll', ({query}, res) => {
+    var toArray = _.toArray(DATA.facebookPage)
+    return new Promise((resolve, reject) => {
+
+        var promises = toArray.map(function (body) {
+            return getFullPageInfo(body.id, body.access_token)
+                .then(results => {
+                    return results
+                })
+                .catch(err => {
+                    return err
+                })
+        });
+
+        Promise.all(promises)
+            .then(results => {
+                res.send(results)
+            })
+
+
+    })
+
+});
+
+
+app.get('/user/update/all', ({query}, res) => userUpdateAll().then(result => res.send(result)).catch(err => res.status(500).json(err)));
 
 function sendMessageNoSave(senderID, messages, typing, pageID, metadata) {
     return new Promise(function (resolve, reject) {
@@ -1227,28 +1290,67 @@ app.get('/getAllPage', ({query}, res) => res.send(getAllPage()))
 /// Analytics
 
 function analytics(pageID, day = 1, ago = 0) {
-    var end = Date.now() - 1000 * 60 * 60 * 24 * ago
-    var start = end - 1000 * 60 * 60 * 24 * day
+    return new Promise(function (resolve, reject) {
 
-    var lastActive = viewResponse({page: pageID, lastActive_from: start, lastActive_to: end}).count.total
+        var end = Date.now() - 1000 * 60 * 60 * 24 * ago
+        var start = end - 1000 * 60 * 60 * 24 * day
 
-    var filter = viewResponse({page: pageID, createdAt_from: start, createdAt_to: end})
+        var query = {start, end, pageID}
+        var result = {}
 
-    var createAt = filter.count.total
-    var send_error = filter.count.sent_error
+        var lastActive = viewResponse({page: pageID, lastActive_from: start, lastActive_to: end}).count.total
 
-    var ref = {}
-    var count = _.each(filter, num => {
-        if (num.ref) {
-            if (ref[num.ref]) ref[num.ref]++
-            else ref[num.ref] = 1
-        }
-    });
+        var filter = viewResponse({page: pageID, createdAt_from: start, createdAt_to: end})
+
+        var createAt = filter.count.total
+        var send_error = filter.count.sent_error
+
+        var ref = {}
+        _.each(filter, num => {
+            if (num.ref) {
+                if (ref[num.ref]) ref[num.ref]++
+                else ref[num.ref] = 1
+            }
+        });
+
+        result = {lastActive, createAt, send_error, ref}
+
+        var Array = [{query: {"sender.id": pageID, "timestamp": {$gte: start, $lte: end}}, type: 'sent'}, {
+            query: {
+                "recipient.id": pageID,
+                "timestamp": {$gte: start, $lte: end}
+            }, type: 'receive'
+        }]
 
 
-    return {lastActive, createAt, send_error, ref, start, end}
+        var promises = Array.map(function (obj) {
+            return queryThen(messageFactoryCol, obj.query).then(result => {
+                var res = {}
+                res[obj.type] = result.length
+                return res
+            })
+        });
+
+        Promise.all(promises)
+            .then(results => {
+                result.results = results
+                resolve({result, query})
+            })
+
+
+    })
+}
+
+function queryThen(col, query) {
+    return new Promise(function (resolve, reject) {
+        col.find(query).toArray((err, data) => {
+            resolve(data)
+        })
+    })
 
 }
 
-app.get('/analytics', ({query}, res) => res.send(analytics(query.pageID, query.day, query.ago)))
-
+app.get('/analytics', ({query}, res) =>
+    analytics(query.pageID, query.day, query.ago)
+        .then(result => res.send(result))
+        .catch(err => res.status(500).json(err)))
