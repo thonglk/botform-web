@@ -1579,12 +1579,14 @@ function datefily(dateTime) {
 
 function buildReport(pageID, day = 1, ago = 0) {
     return new Promise(function (resolve, reject) {
-
+    day = Number(day)
+    ago = Number(ago)
     analytics(pageID, day, ago).then(now => {
         var past_day = day + ago
+        console.log('past_day',past_day)
         analytics(pageID, day, past_day).then(past => {
         var text = `Report ${day} day from ${datefily(now.query.start)} to ${datefily(now.query.end)} \n \n`
-        text = text + `New Users: ${now.result.createAt} (${now.result.createAt -past.result.createAt })\n`
+        text = text + `New Users: ${now.result.createAt} (${now.result.createAt - past.result.createAt })\n`
         text = text + `Active Users: ${now.result.lastActive} (${now.result.lastActive - past.result.lastActive})\n`
         text = text + `Sent Messages: ${now.result.sent} (${now.result.sent - past.result.sent})\n`
         text = text + `Received Messages: ${now.result.receive} (${now.result.receive - past.result.receive})\n`
