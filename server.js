@@ -249,7 +249,7 @@ function viewResponse(query) {
     });
     count.total = data.length
 
-    return {count, data, pageData: DATA.facebookPage[query.page], bot: getBotfromPageID(query.page)}
+    return {count, data}
 }
 
 app.get('/viewResponse', ({query}, res) => res.send(viewResponse(query)))
@@ -749,13 +749,13 @@ function sendLog(text) {
 
 function getBotfromPageID(pageID) {
 
-    if (DATA.facebookPage[pageID].currentBot) var result = _.findWhere(dataLadiBot, {id: DATA.facebookPage[pageID].currentBot});
+    if (DATA.facebookPage[pageID] && DATA.facebookPage[pageID].currentBot) var result = _.findWhere(dataLadiBot, {id: DATA.facebookPage[pageID].currentBot});
     else result = _.findWhere(dataLadiBot, {page: pageID});
 
     return result;
 }
 
-function buildMessage(blockName, pageID) {
+function  buildMessage(blockName, pageID) {
     return new Promise(function (resolve, reject) {
         var flow = getBotfromPageID(pageID).data
         var allMessages = []
@@ -1088,16 +1088,34 @@ app.get('/buildMessage', ({
 ))
 ;
 
-function sendBroadCast(query, blockName) {
+app.get('/getTargetUser', ({query}, res) => getTargetUser(query.spreadsheetId)
+    .then(result => res.send(result))
+    .catch(err => res.status(500).json(err)))
+
+function getTargetUser(spreadsheetId) {
+    return new Promise(function (resolve, reject) {
+        axios.get(`https://jobo-ana.herokuapp.com/getData?spreadsheetId=${spreadsheetId}&range=broadcast`)
+            .then(result => resolve(result.data))
+            .catch(err => {
+                console.log(err)
+                reject(err)
+            })
+    })
+}
+function sendBroadCast(query, blockName,users) {
     return new Promise(function (resolve, reject) {
 
-        var pageID = query.page;
+        var pageID = query.pageID;
         var broadCast = {query, blockName, createdAt: Date.now(), id: Date.now()}
         saveData('broadcast', broadCast.id, broadCast)
         buildMessage(blockName, pageID)
             .then(messages => {
-                var result = viewResponse(query)
-                var users = result.data
+                if(!users){
+                    var result = viewResponse(query)
+                    users = result.data
+                }
+                console.log('sendBroadCast_start',query, blockName, users.length)
+
                 var i = -1
                 var success = 0
                 var log = []
@@ -1106,7 +1124,7 @@ function sendBroadCast(query, blockName) {
                     i++
                     if (i < users.length) {
                         var obj = users[i]
-                        sendMessages(obj.id, messages, null, pageID).then(result => setTimeout(() => {
+                        sendMessages(obj.id || obj.mID, messages, null, pageID).then(result => setTimeout(() => {
                                 success++
                                 log.push({success: obj.id})
                                 sendPer()
@@ -1121,10 +1139,8 @@ function sendBroadCast(query, blockName) {
                         broadCast.total = users.length
                         broadCast.sent = success
                         saveData('broadcast', broadCast.id, broadCast)
-                            .then(result => resolve(broadCast)
-                            )
-                            .catch(err => reject(err)
-                            )
+                            .then(result => resolve(broadCast))
+                            .catch(err => reject(err))
                     }
 
                 }
@@ -1135,9 +1151,20 @@ function sendBroadCast(query, blockName) {
 
 }
 
-app.get('/sendBroadCast', ({query}, res) => sendBroadCast(query, query.blockName).then(result => res.send(result)
-).catch(err => res.status(500).json(err)
-))
+app.get('/sendBroadCast', ({query}, res) => {
+        if(query.sheetId) getTargetUser(query.sheetId).then(result => sendBroadCast({pageID:query.pageID}, query.blockName,result.data)
+                .then(result => res.send(result))
+                .catch(err => res.status(500).json(err)))
+         else sendBroadCast(query, query.blockName)
+            .then(result => res.send(result))
+            .catch(err => res.status(500).json(err))
+
+
+
+
+
+
+})
 
 function loadBroadCast(pageID) {
     return new Promise(function (resolve, reject) {
@@ -1599,11 +1626,21 @@ app.get('/queryPage', (req, res) => {
     res.send(queryPage(query))
 })
 app.get('/dashBoard', ({query}, res) => {
+    var pageData =DATA.facebookPage[query.pageID]
 
-    res.send(DATA.facebookPage[query.pageID])
+     pageData.bot = getBotfromPageID(query.pageID)
+    res.send(pageData)
 })
 
 
 app.listen(port, function () {
     console.log('Node app is running on port', port);
 });
+// axios.get('https://web.mastersocial.io/getInfo.php?note=&uid=100003155374518',{ headers: {
+//         Cookie: "__cfduid=d249178942b1143e2dbf5124910b3facc1521567934; PHPSESSID=kkuhf1o92hp490epnuf58h5hs5; _ga=GA1.2.339640636.1521567937; _gid=GA1.2.1246170553.1521567937;"
+//     }}).then(result => console.log(result.data))
+
+
+// axios.get('http://tinchi2.ftu.edu.vn/default.aspx?MenuId=0&page=dangkytc2&ChuyenNganh=1',{ headers: {
+//         Cookie: "_ga=GA1.3.1449132872.1521011410; ASP.NET_SessionId=n0cdk2330palrqt4jzi00q0j"
+//     }}).then(result => console.log(result.data)).catch(err => console.log(err))
