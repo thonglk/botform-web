@@ -28,7 +28,7 @@ app.get("/", function (request, response) {
 });
 
 // listen for requests :)
-var port = process.env.PORT || 1234
+var port = process.env.PORT || 1235
 
 
 _.templateSettings = {
@@ -41,16 +41,15 @@ function strToObj(str) {
     } else keyvalue = [str]
     var obj = {}
     keyvalue.forEach(each => {
-        if(each.match('=')
-)
-    {
-        var split = each.split('=')
-        var key = split[0]
-        var value = split[1]
-        obj[key] = value
-    }
+        if (each.match('=')
+        ) {
+            var split = each.split('=')
+            var key = split[0]
+            var value = split[1]
+            obj[key] = value
+        }
 
-})
+    })
     console.log('strToObj', obj)
     return obj
 }
@@ -126,10 +125,9 @@ function saveData(ref, child, data) {
 
         db.ref(ref).child(child).update(data)
             .then(result => resolve(data)
-    )
-    .
-        catch(err => reject(err)
-    )
+            )
+            .catch(err => reject(err)
+            )
     })
 }
 
@@ -140,10 +138,9 @@ function saveSenderData(data, senderID, page = '493938347612411') {
             data.pageID = page
             saveData('account', senderID, data)
                 .then(result => resolve(data)
-        )
-        .
-            catch(err => reject(err)
-        )
+                )
+                .catch(err => reject(err)
+                )
         } else reject({err: 'same'})
 
 
@@ -201,8 +198,7 @@ initData('removeBranding')
 initData('facebookPage')
 
 
-const vietnameseDecode = (str) =>
-{
+const vietnameseDecode = (str) => {
     if (str) {
         str = str.toLowerCase();
         str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, "a");
@@ -226,22 +222,22 @@ function viewResponse(query) {
     console.log('query', query)
     var dataFilter = _.filter(dataAccount, account => {
 
-            if(
-        (account.pageID == query.page || !query.page)
-        && ((account.full_name && account.full_name.toLocaleLowerCase().match(query.full_name)) || !query.full_name)
-        && ((account.ref && account.ref.match(query.ref)) || !query.ref)
-        && ((account.gender && account.gender.match(query.gender)) || !query.gender)
-        && ((account.locale && account.locale.match(query.locale)) || !query.locale)
-        && ((account.createdAt && account.createdAt > new Date(query.createdAt_from).getTime()) || !query.createdAt_from)
-        && ((account.createdAt && account.createdAt < new Date(query.createdAt_to).getTime()) || !query.createdAt_to)
-        && ((account.lastActive && account.lastActive > new Date(query.lastActive_from).getTime()) || !query.lastActive_from)
-        && ((account.lastActive && account.lastActive < new Date(query.lastActive_to).getTime()) || !query.lastActive_to)
-)
-    return true
-else
-    return false
+            if (
+                (account.pageID == query.page || !query.page)
+                && ((account.full_name && account.full_name.toLocaleLowerCase().match(query.full_name)) || !query.full_name)
+                && ((account.ref && account.ref.match(query.ref)) || !query.ref)
+                && ((account.gender && account.gender.match(query.gender)) || !query.gender)
+                && ((account.locale && account.locale.match(query.locale)) || !query.locale)
+                && ((account.createdAt && account.createdAt > new Date(query.createdAt_from).getTime()) || !query.createdAt_from)
+                && ((account.createdAt && account.createdAt < new Date(query.createdAt_to).getTime()) || !query.createdAt_to)
+                && ((account.lastActive && account.lastActive > new Date(query.lastActive_from).getTime()) || !query.lastActive_from)
+                && ((account.lastActive && account.lastActive < new Date(query.lastActive_to).getTime()) || !query.lastActive_to)
+                && (account.role || !query.role)
 
-})
+            ) return true
+            else return false
+
+        })
     ;
     var data = _.sortBy(dataFilter, function (data) {
         if (data.lastActive) {
@@ -256,64 +252,58 @@ else
     return {count, data, pageData: DATA.facebookPage[query.page], bot: getBotfromPageID(query.page)}
 }
 
-app.get('/viewResponse', ({query}, res) => res.send(viewResponse(query))
-)
+app.get('/viewResponse', ({query}, res) => res.send(viewResponse(query)))
 
 app.get('/getchat', ({query}, res) => axios.get('https://jobo-chat.herokuapp.com/getchat', {params: query})
-    .then(result => res.send(result.data)
-)
-.
-catch(err => res.send(err)
-))
-;
+    .then(result => res.send(result.data))
+    .catch(err => res.send(err)));
 
 function updateFbId(pageID) {
     return new Promise((resolve, reject) => {
         var array = []
         console.log('updateFbId', DATA.facebookPage[pageID].access_token);
 
-    axiosLoop('https://graph.facebook.com/v2.12/me/conversations?fields=name,link,id,participants&limit=450&access_token=' + DATA.facebookPage[pageID].access_token)
+        axiosLoop('https://graph.facebook.com/v2.12/me/conversations?fields=name,link,id,participants&limit=450&access_token=' + DATA.facebookPage[pageID].access_token)
 
-    function axiosLoop(url) {
-        axios.get(url).then((result, err) => {
-            if(err) reject(err)
-            var conversations = result.data
-            console.log('conversations', conversations, err);
-        array = array.concat(conversations.data)
-        if (conversations.paging.next) axiosLoop(conversations.paging.next)
-        else {
-            var users = viewResponse({page: pageID}).data
-            var users = users.map(user => {
-                console.log('user.link', user.link)
-            var data = _.findWhere(array, {link: user.link})
-            console.log('data', data)
-            if (data) {
-                user.fbId = data.participants.data[0].id
-                user.tId = data.id.slice(2)
-                var roles = DATA.facebookPage[pageID].roles.data
-                var admin = _.findWhere(roles, {id: user.fbId})
-                if (admin) {
-                    saveData('account', user.id, {role: admin.role}).then(result => console.log('save', result)
-                )
+        function axiosLoop(url) {
+            axios.get(url).then((result, err) => {
+                if (err) reject(err)
+                var conversations = result.data
+                console.log('conversations', conversations, err);
+                array = array.concat(conversations.data)
+                if (conversations.paging.next) axiosLoop(conversations.paging.next)
+                else {
+                    var users = viewResponse({page: pageID}).data
+                    var users = users.map(user => {
+                        console.log('user.link', user.link)
+                        var data = _.findWhere(array, {link: user.link})
+                        console.log('data', data)
+                        if (data) {
+                            user.fbId = data.participants.data[0].id
+                            user.tId = data.id.slice(2)
+                            var roles = DATA.facebookPage[pageID].roles.data
+                            var admin = _.findWhere(roles, {id: user.fbId})
+                            if (admin) {
+                                saveData('account', user.id, {role: admin.role}).then(result => console.log('save', result)
+                                )
+                            }
+
+                        }
+
+                        return user
+                    })
+                    resolve(users)
                 }
 
-            }
 
-            return user
-        })
-            resolve(users)
+            })
         }
-
-
     })
-    }
-})
 
 }
 
 app.get('/updateFbId', ({query}, res) => updateFbId(query.pageID).then(result => res.send(result)
-).
-catch(err => res.status(500).json(err)
+).catch(err => res.status(500).json(err)
 ))
 
 
@@ -324,78 +314,73 @@ function updateFbIdAll() {
         var promises = toArray.map(function (body) {
             return updateFbId(body.id)
                 .then(results => {
-                return results
-            }
-        ).
-            catch(err => {
-                return err
-            }
-        )
+                        return results
+                    }
+                ).catch(err => {
+                        return err
+                    }
+                )
         });
 
-    Promise.all(promises).then(results => resolve(results)
-)
+        Promise.all(promises).then(results => resolve(results)
+        )
 
-})
+    })
 
 }
 
 app.get('/updateFbIdAll', ({query}, res) => updateFbIdAll().then(result => res.send(result)
-).
-catch(err => res.status(500).json(err)
+).catch(err => res.status(500).json(err)
 ))
 
 function userUpdate(body) {
     return new Promise((resolve, reject) => {
         console.log('body', body)
-    var user = body
-    if (!user.id) res.status(500).json({err: 'no userID'})
+        var user = body
+        if (!user.id) res.status(500).json({err: 'no userID'})
 
-    if (!user.createdAt) user.createdAt = Date.now()
-    user.updatedAt = Date.now()
+        if (!user.createdAt) user.createdAt = Date.now()
+        user.updatedAt = Date.now()
 
-    user.pageList = user.pageList.map(page => {
-        if(page['$$hashKey']
-)
-    delete page['$$hashKey']
-    return page
-})
+        user.pageList = user.pageList.map(page => {
+            if (page['$$hashKey']
+            )
+                delete page['$$hashKey']
+            return page
+        })
 
-    var promises = user.pageList.map(function (obj) {
-        return getLongLiveToken(obj.access_token)
+        var promises = user.pageList.map(function (obj) {
+            return getLongLiveToken(obj.access_token)
+                .then(results => {
+                    if (obj['$$hashKey']
+                    )
+                        delete obj['$$hashKey']
+                    obj.access_token = results.access_token
+                    return obj
+                })
+                .catch(err => {
+                    if (obj['$$hashKey']
+                    )
+                        delete obj['$$hashKey']
+                    obj.access_token = 'err'
+                    return obj
+                })
+        });
+
+        Promise.all(promises)
             .then(results => {
-            if(obj['$$hashKey']
-    )
-        delete obj['$$hashKey']
-        obj.access_token = results.access_token
-        return obj
+                user.pageList = results
+
+
+                saveData('user', user.id, user).then(result => resolve(user)
+                ).catch(err => reject(err)
+                )
+            })
     })
-    .
-        catch(err => {
-            if(obj['$$hashKey']
-    )
-        delete obj['$$hashKey']
-        obj.access_token = 'err'
-        return obj
-    })
-    });
-
-    Promise.all(promises)
-        .then(results => {
-        user.pageList = results
-
-
-    saveData('user', user.id, user).then(result => resolve(user)
-).
-    catch(err => reject(err)
-)
-})
-})
 }
 
 app.post('/user/update', ({body}, res) => userUpdate(body).then(result => res.send(result)
-).
-catch(err => res.status(500).json(err)
+).catch(err => res.status(500).json(err)
 ))
 ;
 
@@ -406,24 +391,23 @@ function userUpdateAll() {
         var promises = toArray.map(function (body) {
             return userUpdate(body)
                 .then(results => {
-                return results
-            }
-        )
-        .
-            catch(err => {
-                return err
-            }
-        )
+                        return results
+                    }
+                )
+                .catch(err => {
+                        return err
+                    }
+                )
         });
 
-    Promise.all(promises)
-        .then(results => {
-        resolve(results)
-    }
-)
+        Promise.all(promises)
+            .then(results => {
+                    resolve(results)
+                }
+            )
 
 
-})
+    })
 }
 
 function getLongLiveToken(shortLiveToken) {
@@ -431,36 +415,30 @@ function getLongLiveToken(shortLiveToken) {
 
     return new Promise((resolve, reject) => {
         const url = `https://graph.facebook.com/oauth/access_token?grant_type=fb_exchange_token&client_id=295208480879128&client_secret=4450decf6ea88c391f4100b5740792ae&fb_exchange_token=${shortLiveToken}`;
-    axios.get(url)
-        .then(res => {
-        console.log('getLongLiveToken', res.data)
-    resolve(res.data)
-})
-.
-    catch(err => {
-        reject(err.response
-)
-    ;
-})
-    ;
-})
-    ;
+        axios.get(url)
+            .then(res => {
+                console.log('getLongLiveToken', res.data)
+                resolve(res.data)
+            })
+            .catch(err => {
+                reject(err.response
+                )
+                ;
+            })
+        ;
+    })
+        ;
 }
 
 function getFullPageInfo(pageID, access_token) {
     return new Promise((resolve, reject) => {
         graph.get('/me/?fields=name,id,fan_count,roles,location&access_token=' + access_token, (err, result) => {
-        if(err || result.message
-)
-    reject(err)
-    saveData('facebookPage', pageID, result).then(result => resolve(result)
-).
-    catch(err => reject(err)
-)
-
-
-})
-})
+            if (err || result.message) reject(err)
+            saveData('facebookPage', pageID, result)
+                .then(result => resolve(result))
+                .catch(err => reject(err))
+        })
+    })
 
 
 }
@@ -471,29 +449,27 @@ function getFullaPageAll(pageList) {
         var promises = pageList.map(function (body) {
             return getFullPageInfo(body.id, body.access_token)
                 .then(results => {
-                return results
-            }
-        )
-        .
-            catch(err => {
-                return err
-            }
-        )
+                        return results
+                    }
+                )
+                .catch(err => {
+                        return err
+                    }
+                )
         });
 
-    Promise.all(promises)
-        .then(results => {
-        resolve(results)
-    }
-)
+        Promise.all(promises)
+            .then(results => {
+                    resolve(results)
+                }
+            )
 
 
-})
+    })
 }
 
 app.get('/getFullPageInfo', ({query}, res) => getFullPageInfo(query.pageID, DATA.facebookPage[query.pageID].access_token).then(result => res.send(result)
-).
-catch(err => res.status(500).json(err)
+).catch(err => res.status(500).json(err)
 ))
 ;
 
@@ -504,31 +480,29 @@ app.get('/getFullPageAll', ({query}, res) => {
         var promises = toArray.map(function (body) {
             return getFullPageInfo(body.id, body.access_token)
                 .then(results => {
-                return results
-            }
-        )
-        .
-            catch(err => {
-                return err
-            }
-        )
+                        return results
+                    }
+                )
+                .catch(err => {
+                        return err
+                    }
+                )
         });
 
-Promise.all(promises)
-    .then(results => {
-    res.send(results)
-})
+        Promise.all(promises)
+            .then(results => {
+                res.send(results)
+            })
 
 
-})
+    })
 
 })
 ;
 
 
 app.get('/user/update/all', ({query}, res) => userUpdateAll().then(result => res.send(result)
-).
-catch(err => res.status(500).json(err)
+).catch(err => res.status(500).json(err)
 ))
 ;
 
@@ -542,14 +516,13 @@ function sendMessageNoSave(senderID, messages, typing, pageID, metadata) {
             if (i < messages.length) {
                 var messageData = messages[i]
                 sendOne(messageData, pageID).then(result => setTimeout(() => {
-                    sendPer()
-                }, 100
-            ))
-            .
-                catch(err => {
-                    console.log('err', i, err)
-                reject(err)
-            })
+                        sendPer()
+                    }, 100
+                ))
+                    .catch(err => {
+                        console.log('err', i, err)
+                        reject(err)
+                    })
             } else {
                 console.log('done', i, messages.length)
                 resolve(messages)
@@ -566,8 +539,10 @@ function sendMessageNoSave(senderID, messages, typing, pageID, metadata) {
 
 function sendOne(messageData, page) {
     return new Promise(function (resolve, reject) {
-        var tag = ["COMMUNITY_ALERT", "CONFIRMED_EVENT_REMINDER", "PAIRING_UPDATE", "APPLICATION_UPDATE", "ACCOUNT_UPDATE", "PAYMENT_UPDATE", "RESERVATION_UPDATE", "ISSUE_RESOLUTION", "FEATURE_FUNCTIONALITY_UPDATE",]
-        messageData.tag = _.sample(tag)
+        var tag = ["COMMUNITY_ALERT", "CONFIRMED_EVENT_REMINDER", "PAIRING_UPDATE", "APPLICATION_UPDATE", "ACCOUNT_UPDATE", "PAYMENT_UPDATE", "RESERVATION_UPDATE", "ISSUE_RESOLUTION", "FEATURE_FUNCTIONALITY_UPDATE"]
+        var tag_1 = ["NON_PROMOTIONAL_SUBSCRIPTION"]
+
+        messageData.tag = _.sample(tag_1)
         if (!DATA.facebookPage[page] || !DATA.facebookPage[page].access_token) {
             console.log("send_error_access-token", page, messageData);
             reject({err: 'no access token'})
@@ -607,32 +582,30 @@ function callSendAPI(messageData, page = 'jobo') {
             var split = longtext.split('.\n')
             console.log('split', split)
             var messages = split.map(text => {
-                var mess = {
-                    recipient: {
-                        id: messageData.recipient.id
-                    },
-                    message: {
-                        text: text
-                    }
-                };
-            return mess
-        })
+                    var mess = {
+                        recipient: {
+                            id: messageData.recipient.id
+                        },
+                        message: {
+                            text: text
+                        }
+                    };
+                    return mess
+                })
             ;
             console.log('messages', messages)
 
             sendMessageNoSave(messageData.recipient.id, messages, null, page)
                 .then(result => resolve(result)
-        )
-        .
-            catch(err => reject(err)
-        )
+                )
+                .catch(err => reject(err)
+                )
 
         } else sendOne(messageData, page)
             .then(result => resolve(result)
-    )
-    .
-        catch(err => reject(err)
-    )
+            )
+            .catch(err => reject(err)
+            )
     })
 
 }
@@ -649,10 +622,9 @@ function sendTypingOn(recipientId, page = 'jobo') {
 
         callSendAPI(messageData, page)
             .then(result => resolve(result)
-    )
-    .
-        catch(err => reject(err)
-    )
+            )
+            .catch(err => reject(err)
+            )
         ;
     })
 
@@ -670,10 +642,9 @@ function sendTypingOff(recipientId, page = 'jobo') {
 
         callSendAPI(messageData, page)
             .then(result => resolve(result)
-    )
-    .
-        catch(err => reject(err)
-    )
+            )
+            .catch(err => reject(err)
+            )
         ;
     })
 }
@@ -695,18 +666,16 @@ function sendAPI(recipientId, message, typing, page = 'jobo', meta) {
 
         sendTypingOn(recipientId, page)
             .then(result => setTimeout(function () {
-            callSendAPI(messageData, page).then(result => {
-                sendTypingOff(recipientId, page)
-                resolve(messageData)
-            }
-        ).
-            catch(err => reject(err)
-        )
-        }, typing)
-    )
-    .
-        catch(err => reject(err)
-    )
+                    callSendAPI(messageData, page).then(result => {
+                            sendTypingOff(recipientId, page)
+                            resolve(messageData)
+                        }
+                    ).catch(err => reject(err)
+                    )
+                }, typing)
+            )
+            .catch(err => reject(err)
+            )
 
         messageData.sender = {id: page}
         messageData.type = 'sent'
@@ -714,11 +683,10 @@ function sendAPI(recipientId, message, typing, page = 'jobo', meta) {
         if (meta) messageData.meta = meta
         saveSenderData({lastSent: messageData}, recipientId, page)
             .then(result => messageFactoryCol.insert(messageData)
+                .catch(err => reject(err)
+                ))
             .catch(err => reject(err)
-    ))
-    .
-        catch(err => reject(err)
-    )
+            )
     })
 }
 
@@ -732,14 +700,13 @@ function sendMessages(senderID, messages, typing, pageID, metadata) {
             if (i < messages.length) {
                 var messageData = messages[i]
                 sendAPI(senderID, messageData, typing, pageID, metadata).then(result => setTimeout(() => {
-                    sendPer()
-                }, 2000
-            ))
-            .
-                catch(err => {
-                    console.log('err', i, err)
-                reject(err)
-            })
+                        sendPer()
+                    }, 2000
+                ))
+                    .catch(err => {
+                        console.log('err', i, err)
+                        reject(err)
+                    })
             } else {
                 console.log('done', i, messages.length)
                 resolve(messages)
@@ -878,27 +845,27 @@ function buildMessage(blockName, pageID) {
 
                                 var map = _.map(askOption, option => {
 
-                                    var eleArray = option[0].split('&&')
-                                    var image_url = ''
-                                    if(option[5] && option[5][0]
-                            )
-                                image_url = flow[20][option[5][0]]
+                                        var eleArray = option[0].split('&&')
+                                        var image_url = ''
+                                        if (option[5] && option[5][0]
+                                        )
+                                            image_url = flow[20][option[5][0]]
 
-                                if (option[2]) metadata.goto = option[2]
-                                if (generic.length < 10) generic.push({
-                                    "title": eleArray[0] || option[0],
-                                    "image_url": image_url,
-                                    "subtitle": eleArray[1],
-                                    "buttons": [
-                                        {
-                                            "type": "postback",
-                                            "title": eleArray[2] || 'Choose',
-                                            "payload": JSON.stringify(metadata)
-                                        }
-                                    ]
-                                });
-                                else console.log('generic.length', generic.length)
-                            })
+                                        if (option[2]) metadata.goto = option[2]
+                                        if (generic.length < 10) generic.push({
+                                            "title": eleArray[0] || option[0],
+                                            "image_url": image_url,
+                                            "subtitle": eleArray[1],
+                                            "buttons": [
+                                                {
+                                                    "type": "postback",
+                                                    "title": eleArray[2] || 'Choose',
+                                                    "payload": JSON.stringify(metadata)
+                                                }
+                                            ]
+                                        });
+                                        else console.log('generic.length', generic.length)
+                                    })
                                 ;
                                 messageSend.attachment.payload.elements = generic;
 
@@ -910,39 +877,39 @@ function buildMessage(blockName, pageID) {
                                 var array_mes = []
                                 var buttons = []
                                 var each = _.each(askOption, option => {
-                                    metadata.text = option[0]
-                                if (option[2]) metadata.goto = option[2]
-                                if (option[4] == 1) metadata.other = option[2]
+                                        metadata.text = option[0]
+                                        if (option[2]) metadata.goto = option[2]
+                                        if (option[4] == 1) metadata.other = option[2]
 
-                                var str = option[0]
+                                        var str = option[0]
 
-                                if (str.indexOf("[") != -1 && str.indexOf("]") != -1) {
-                                    var n = str.indexOf("[") + 1;
-                                    var b = str.indexOf("]");
-                                    var sub = str.substr(n, b - n)
-                                    var tit = str.substr(0, n - 2)
-                                    var expression = "/((([A-Za-z]{3,9}:(?:\\/\\/)?)(?:[\\-;:&=\\+\\$,\\w]+@)?[A-Za-z0-9\\.\\-]+|(?:www\\.|[\\-;:&=\\+\\$,\\w]+@)[A-Za-z0-9\\.\\-]+)((?:\\/[\\+~%\\/\\.\\w\\-_]*)?\\??(?:[\\-\\+=&;%@\\.\\w_]*)#?(?:[\\.\\!\\/\\\\\\w]*))?)/\n";
-                                    var regex = 'http';
-                                    if (sub.match(regex)) var button = {
-                                        type: "web_url",
-                                        url: sub,
-                                        title: tit,
-                                        messenger_extensions: false
-                                    }
-                                    else button = {
-                                        type: "phone_number",
-                                        title: tit,
-                                        payload: sub
-                                    }
+                                        if (str.indexOf("[") != -1 && str.indexOf("]") != -1) {
+                                            var n = str.indexOf("[") + 1;
+                                            var b = str.indexOf("]");
+                                            var sub = str.substr(n, b - n)
+                                            var tit = str.substr(0, n - 2)
+                                            var expression = "/((([A-Za-z]{3,9}:(?:\\/\\/)?)(?:[\\-;:&=\\+\\$,\\w]+@)?[A-Za-z0-9\\.\\-]+|(?:www\\.|[\\-;:&=\\+\\$,\\w]+@)[A-Za-z0-9\\.\\-]+)((?:\\/[\\+~%\\/\\.\\w\\-_]*)?\\??(?:[\\-\\+=&;%@\\.\\w_]*)#?(?:[\\.\\!\\/\\\\\\w]*))?)/\n";
+                                            var regex = 'http';
+                                            if (sub.match(regex)) var button = {
+                                                type: "web_url",
+                                                url: sub,
+                                                title: tit,
+                                                messenger_extensions: false
+                                            }
+                                            else button = {
+                                                type: "phone_number",
+                                                title: tit,
+                                                payload: sub
+                                            }
 
-                                } else if (option[0]) button = {
-                                    type: "postback",
-                                    title: option[0],
-                                    payload: JSON.stringify(metadata)
-                                }
-                                if (button) buttons.push(button)
+                                        } else if (option[0]) button = {
+                                            type: "postback",
+                                            title: option[0],
+                                            payload: JSON.stringify(metadata)
+                                        }
+                                        if (button) buttons.push(button)
 
-                            })
+                                    })
                                 ;
                                 console.log('buttons', buttons)
                                 var length = buttons.length
@@ -993,24 +960,24 @@ function buildMessage(blockName, pageID) {
                             } else {
                                 var quick_replies = []
                                 var map = _.map(askOption, option => {
-                                    metadata.text = option[0]
-                                if (option[2]) metadata.goto = option[2]
-                                if (option[4] == 1) {
-                                    metadata.other = option[2]
-                                    console.log('metadata', metadata)
-                                }
+                                        metadata.text = option[0]
+                                        if (option[2]) metadata.goto = option[2]
+                                        if (option[4] == 1) {
+                                            metadata.other = option[2]
+                                            console.log('metadata', metadata)
+                                        }
 
-                                var quick = {
-                                    "content_type": "text",
-                                    "title": option[0],
-                                    "payload": JSON.stringify(metadata)
+                                        var quick = {
+                                            "content_type": "text",
+                                            "title": option[0],
+                                            "payload": JSON.stringify(metadata)
 
-                                }
-                                if (option[5] && option[5][0]) quick.image_url = flow[20][option[5][0]]
+                                        }
+                                        if (option[5] && option[5][0]) quick.image_url = flow[20][option[5][0]]
 
-                                if (quick_replies.length < 11) quick_replies.push(quick)
-                                else console.log('quick_replies.length', quick_replies.length)
-                            })
+                                        if (quick_replies.length < 11) quick_replies.push(quick)
+                                        else console.log('quick_replies.length', quick_replies.length)
+                                    })
                                 ;
 
                                 messageSend.quick_replies = quick_replies
@@ -1067,11 +1034,11 @@ function buildMessage(blockName, pageID) {
                                 var url = currentQuestion[2]
                                 console.log('url ', url)
                                 axios.get(url).then(result => {
-                                    var messages = result.data
-                                    allMessages = allMessages.concat(messages)
-                                    resolve(allMessages)
-                                }
-                            )
+                                        var messages = result.data
+                                        allMessages = allMessages.concat(messages)
+                                        resolve(allMessages)
+                                    }
+                                )
                             }
                             else if (currentQuestion[2] && currentQuestion[2].toLowerCase() == 'notification') {
                                 console.log('setNoti')
@@ -1113,11 +1080,11 @@ function buildMessage(blockName, pageID) {
 }
 
 app.get('/buildMessage', ({
-    query: {
-        pageID,
-        blockName
-    }
-}, res) => buildMessage(blockName, pageID).then(result => res.send(result)
+                              query: {
+                                  pageID,
+                                  blockName
+                              }
+                          }, res) => buildMessage(blockName, pageID).then(result => res.send(result)
 ))
 ;
 
@@ -1129,61 +1096,57 @@ function sendBroadCast(query, blockName) {
         saveData('broadcast', broadCast.id, broadCast)
         buildMessage(blockName, pageID)
             .then(messages => {
-            var result = viewResponse(query)
-            var users = result.data
-            var i = -1
-            var success = 0
-            var log = []
+                var result = viewResponse(query)
+                var users = result.data
+                var i = -1
+                var success = 0
+                var log = []
 
-            function sendPer()
-        {
-            i++
-            if (i < users.length) {
-                var obj = users[i]
-                sendMessages(obj.id, messages, null, pageID).then(result => setTimeout(() => {
-                    success++
-                        log.push({success: obj.id})
-                    sendPer()
-                }, 1000
-            ))
-            .
-                catch(err => {
-                    log.push({err})
+                function sendPer() {
+                    i++
+                    if (i < users.length) {
+                        var obj = users[i]
+                        sendMessages(obj.id, messages, null, pageID).then(result => setTimeout(() => {
+                                success++
+                                log.push({success: obj.id})
+                                sendPer()
+                            }, 1000
+                        ))
+                            .catch(err => {
+                                log.push({err})
+                                sendPer()
+                            })
+                    } else {
+                        console.log('sendBroadCast_done', i, users.length)
+                        broadCast.total = users.length
+                        broadCast.sent = success
+                        saveData('broadcast', broadCast.id, broadCast)
+                            .then(result => resolve(broadCast)
+                            )
+                            .catch(err => reject(err)
+                            )
+                    }
+
+                }
+
                 sendPer()
             })
-            } else {
-                console.log('sendBroadCast_done', i, users.length)
-                broadCast.total = users.length
-                broadCast.sent = success
-                saveData('broadcast', broadCast.id, broadCast)
-                    .then(result => resolve(broadCast)
-            )
-            .
-                catch(err => reject(err)
-            )
-            }
-
-        }
-
-        sendPer()
-    })
     })
 
 }
 
 app.get('/sendBroadCast', ({query}, res) => sendBroadCast(query, query.blockName).then(result => res.send(result)
-).
-catch(err => res.status(500).json(err)
+).catch(err => res.status(500).json(err)
 ))
 
 function loadBroadCast(pageID) {
     return new Promise(function (resolve, reject) {
         var broadCast = DATA['broadcast']
         var res = _.filter(broadCast, cast => {
-            if(cast.query.page == pageID
-    )
-        return true
-    })
+            if (cast.query.page == pageID
+            )
+                return true
+        })
         console.log('broadCast', broadCast)
         resolve(res)
     })
@@ -1191,8 +1154,7 @@ function loadBroadCast(pageID) {
 }
 
 app.get('/loadBroadCast', ({query}, res) => loadBroadCast(query.pageID).then(result => res.send(result)
-).
-catch(err => res.status(500).json(err)
+).catch(err => res.status(500).json(err)
 ))
 
 
@@ -1211,19 +1173,19 @@ function checkSender() {
                 var obj = users[i]
                 sendTypingOn(obj.id, obj.pageID).then(result => {
                     saveSenderData({sent_error: null}, obj.id, obj.pageID
-            )
-                log.push(result)
-                sendPer()
-            }).
-                catch(err => {
-                    saveSenderData({sent_error: err.error.message
-            },
-                obj.id, obj.pageID
-            )
-                log.push(err)
-                error++
-                sendPer()
-            })
+                    )
+                    log.push(result)
+                    sendPer()
+                }).catch(err => {
+                    saveSenderData({
+                            sent_error: err.error.message
+                        },
+                        obj.id, obj.pageID
+                    )
+                    log.push(err)
+                    error++
+                    sendPer()
+                })
             } else {
                 console.log('checkSender_done', i, users.length)
                 sendLog('checkSender_done err' + error + '/' + users.length)
@@ -1243,9 +1205,7 @@ app.get('/checkSender', (req, res) => checkSender().then(result => res.send(resu
 ))
 
 
-var listener = app.listen(port, function () {
-    console.log('Your app is listening on port ' + listener.address().port);
-});
+
 var circular = require('circular');
 
 var crypto = require('crypto')
@@ -1267,10 +1227,9 @@ function paybank(query) {
 
         axios.post('https://api.pay.truemoney.com.vn/bank-charging/service/v2?' + fullurl)
             .then(result => resolve(result.data)
-    )
-    .
-        catch(err => reject(JSON.stringify(err, circular()))
-    )
+            )
+            .catch(err => reject(JSON.stringify(err, circular()))
+            )
 
     })
 
@@ -1278,40 +1237,38 @@ function paybank(query) {
 
 app.get('/paybank', ({query}, res) => paybank(query).then(result => res.send(result)
 )
-.
-catch(err => res.status(500).json(err)
-))
+    .catch(err => res.status(500).json(err)
+    ))
 
 
 app.get('/paybankButton', ({query}, res) => {
 
     paybank(query).then(result => {
-    var send = {
-        "messages": [
-            {
-                "attachment": {
-                    "type": "template",
-                    "payload": {
-                        "template_type": "button",
-                        "text": "Thanh toán bằng thẻ ATM nội địa",
-                        "buttons": [
-                            {
-                                "type": "web_url",
-                                "url": result.pay_url,
-                                "title": "Thanh toán thẻ ATM"
-                            }
-                        ]
+        var send = {
+            "messages": [
+                {
+                    "attachment": {
+                        "type": "template",
+                        "payload": {
+                            "template_type": "button",
+                            "text": "Thanh toán bằng thẻ ATM nội địa",
+                            "buttons": [
+                                {
+                                    "type": "web_url",
+                                    "url": result.pay_url,
+                                    "title": "Thanh toán thẻ ATM"
+                                }
+                            ]
+                        }
                     }
                 }
-            }
-        ]
-    }
-    res.send(send)
+            ]
+        }
+        res.send(send)
 
 
-}).
-catch(err => res.status(500).json(err)
-)
+    }).catch(err => res.status(500).json(err)
+    )
 })
 
 var urlParameters2 = `access_key=clbgp35br12gb6j3oq6h&amount=10000&order_id=test_50&order_info=test_order_description&return_url=https://app.botform.asia/success`
@@ -1332,12 +1289,12 @@ function setDefautMenu(page = 'jobo', persistent_menu, branding = true) {
 
     if (branding) persistent_menu = persistent_menu.map(per => {
         per.call_to_actions.push({
-        "title": "Create a bot in Botform",
-        "type": "web_url",
-        "url": "https://app.botform.asia/create"
+            "title": "Create a bot in Botform",
+            "type": "web_url",
+            "url": "https://app.botform.asia/create"
+        })
+        return per
     })
-    return per
-})
 
 
     var menu = {persistent_menu}
@@ -1391,43 +1348,41 @@ function removeChatfuelBranding(pageID) {
         graph.get('/me/messenger_profile?fields=persistent_menu&access_token=' + access_token, (err, result) => {
 
             console.log('persistent_menu', err, result)
-        if (result && result.data && result.data[0]) {
-            var menu = result.data[0]
+            if (result && result.data && result.data[0]) {
+                var menu = result.data[0]
 
-            menu.persistent_menu = menu.persistent_menu.map(per => {
-                var call = per.call_to_actions
-                var lastTitle = _.last(call).title.toLocaleLowerCase()
-                if(lastTitle.match('manychat') || lastTitle.match('chatfuel')
-        )
-            call = _.initial(call)
-            per.call_to_actions = call
-            return per
+                menu.persistent_menu = menu.persistent_menu.map(per => {
+                    var call = per.call_to_actions
+                    var lastTitle = _.last(call).title.toLocaleLowerCase()
+                    if (lastTitle.match('manychat') || lastTitle.match('chatfuel')
+                    )
+                        call = _.initial(call)
+                    per.call_to_actions = call
+                    return per
+                })
+                console.log('newmenu', JSON.stringify(menu))
+
+                setDefautMenu(pageID, menu.persistent_menu, null)
+                    .then(result => saveData('removeBranding', pageID, {status: 'success'})
+                        .then(saveSuc => resolve({status: 'success', pageID})
+                        )
+                    )
+                    .catch(err => saveData('removeBranding', pageID, {status: err}).then(saveSuc => reject(err)
+                    ))
+            }
+
         })
-            console.log('newmenu', JSON.stringify(menu))
-
-            setDefautMenu(pageID, menu.persistent_menu, null)
-                .then(result => saveData('removeBranding', pageID, {status: 'success'})
-                .then(saveSuc => resolve({status: 'success', pageID})
-        )
-        )
-        .
-            catch(err => saveData('removeBranding', pageID, {status: err}).then(saveSuc => reject(err)
-        ))
-        }
-
-    })
 
     })
 
 }
 
 app.get('/removeChatfuelBranding', ({query}, res) =>
-removeChatfuelBranding(query.pageID)
-    .then(result => res.send(result)
-)
-.
-catch(err => res.status(500).json(err)
-))
+    removeChatfuelBranding(query.pageID)
+        .then(result => res.send(result)
+        )
+        .catch(err => res.status(500).json(err)
+        ))
 
 
 function removeRefresh() {
@@ -1437,22 +1392,21 @@ function removeRefresh() {
         var promises = list.map(function (obj) {
             return removeChatfuelBranding(obj.pageID)
                 .then(results => {
-                return results
-            }
-        )
-        .
-            catch(err => {
-                return err
-            }
-        )
+                        return results
+                    }
+                )
+                .catch(err => {
+                        return err
+                    }
+                )
         });
 
         Promise.all(promises)
             .then(results => {
-            sendLog('removeRefreshing'
-    )
-        resolve(results)
-    })
+                sendLog('removeRefreshing'
+                )
+                resolve(results)
+            })
     })
 
 }
@@ -1487,12 +1441,11 @@ setInterval(function () {
 }, 1000 * 60 * 60)
 
 app.get('/removeRefresh', (req, res) =>
-removeRefresh()
-    .then(result => res.send(result)
-)
-.
-catch(err => res.status(500).json(err)
-))
+    removeRefresh()
+        .then(result => res.send(result)
+        )
+        .catch(err => res.status(500).json(err)
+        ))
 
 function getAllPage() {
     var allPage = []
@@ -1529,13 +1482,11 @@ function analytics(pageID, day = 1, ago = 0) {
         var ref = {}
 
         _.each(filter, num => {
-            if(num.ref
-    )
-        {
-            if (ref[num.ref]) ref[num.ref]++
-            else ref[num.ref] = 1
-        }
-    })
+            if (num.ref) {
+                if (ref[num.ref]) ref[num.ref]++
+                else ref[num.ref] = 1
+            }
+        })
         ;
 
         result = {lastActive, createAt, send_error, ref}
@@ -1550,20 +1501,20 @@ function analytics(pageID, day = 1, ago = 0) {
 
         var promises = Array.map(function (obj) {
             return queryThen(messageFactoryCol, obj.query).then(result => {
-                var res = {}
-                res[obj.type] = result.length
-                return res
-            }
-        )
+                    var res = {}
+                    res[obj.type] = result.length
+                    return res
+                }
+            )
         });
 
         Promise.all(promises)
             .then(results => {
-            result.sent = results[0].sent
-        result.receive = results[1].receive
+                result.sent = results[0].sent
+                result.receive = results[1].receive
 
-        resolve({result, query})
-    })
+                resolve({result, query})
+            })
 
 
     })
@@ -1579,51 +1530,80 @@ function datefily(dateTime) {
 
 function buildReport(pageID, day = 1, ago = 0) {
     return new Promise(function (resolve, reject) {
-    day = Number(day)
-    ago = Number(ago)
-    analytics(pageID, day, ago).then(now => {
-        var past_day = day + ago
-        console.log('past_day',past_day)
-        analytics(pageID, day, past_day).then(past => {
-        var text = `Report ${day} day from ${datefily(now.query.start)} to ${datefily(now.query.end)} \n \n`
-        text = text + `New Users: ${now.result.createAt} (${now.result.createAt - past.result.createAt })\n`
-        text = text + `Active Users: ${now.result.lastActive} (${now.result.lastActive - past.result.lastActive})\n`
-        text = text + `Sent Messages: ${now.result.sent} (${now.result.sent - past.result.sent})\n`
-        text = text + `Received Messages: ${now.result.receive} (${now.result.receive - past.result.receive})\n`
-        text = text + `Ref: ${JSON.stringify(now.result.ref)}\n \n`
+        day = Number(day)
+        ago = Number(ago)
+        analytics(pageID, day, ago).then(now => {
+            var past_day = day + ago
+            console.log('past_day', past_day)
+            analytics(pageID, day, past_day).then(past => {
+                    var text = `Report ${day} day from ${datefily(now.query.start)} to ${datefily(now.query.end)} \n \n`
+                    text = text + `New Users: ${now.result.createAt} (${now.result.createAt - past.result.createAt })\n`
+                    text = text + `Active Users: ${now.result.lastActive} (${now.result.lastActive - past.result.lastActive})\n`
+                    text = text + `Sent Messages: ${now.result.sent} (${now.result.sent - past.result.sent})\n`
+                    text = text + `Received Messages: ${now.result.receive} (${now.result.receive - past.result.receive})\n`
+                    text = text + `Ref: ${JSON.stringify(now.result.ref)}\n \n`
 
-        var advice = ["Remember, slow and steady always wins the race.","You should make Click-to-Messenger Ads to get more leads","Add Customer Chat Plugin to your website","Shared content is one of the best ways for your Messenger bot to gain exposure.","m.me Links with ref to measure your campaign"]
-        text = text + `Tips: ${_.sample(advice)}\n`
-        resolve({text})
-    }
-)
+                    var advice = ["Remember, slow and steady always wins the race.", "You should make Click-to-Messenger Ads to get more leads", "Add Customer Chat Plugin to your website", "Shared content is one of the best ways for your Messenger bot to gain exposure.", "m.me Links with ref to measure your campaign"]
+                    text = text + `Tips: ${_.sample(advice)}\n`
+                    resolve({text})
+                }
+            )
 
 
-})
+        })
     })
 }
 
-app.get('/buildReport', ({query}, res) =>
-buildReport(query.pageID, query.day, query.ago)
-    .then(result => res.send(result)
-)
-.
-catch(err => res.status(500).json(err)
-))
+app.get('/buildReport', ({query}, res) => buildReport(query.pageID, query.day, query.ago)
+    .then(result => res.send(result))
+    .catch(err => res.status(500).json(err)
+    ))
+
 function queryThen(col, query) {
     return new Promise(function (resolve, reject) {
         col.find(query).toArray((err, data) => {
-            resolve(data)
-        }
-    )
+                resolve(data)
+            }
+        )
     })
 
 }
 
-app.get('/analytics', ({query}, res) =>
-analytics(query.pageID, query.day, query.ago)
-    .then(result => res.send(result)
-)
-.
-catch(err => res.status(500).json(err)
-))
+app.get('/analytics', ({query}, res) => analytics(query.pageID, query.day, query.ago)
+    .then(result => res.send(result))
+    .catch(err => res.status(500).json(err)
+    ))
+
+
+function ladiBot(query) {
+    return _.where(dataLadiBot, {id: query.id})
+}
+
+app.get('/ladiBot', ({query}, res) => res.send(ladiBot(query)))
+
+
+function queryPage(query) {
+    var data = _.filter(DATA.facebookPage, page => {
+        if (page.name && page.name.toLowerCase().match(query.toLowerCase())) return true
+        else return false
+    })
+
+    var sort = _.sortBy(data,per => {
+        return -per.fan_count
+    })
+    return sort
+}
+
+app.get('/queryPage', (req, res) => {
+    var {query} = req.query
+    res.send(queryPage(query))
+})
+app.get('/dashBoard', ({query}, res) => {
+
+    res.send(DATA.facebookPage[query.pageID])
+})
+
+
+app.listen(port, function () {
+    console.log('Node app is running on port', port);
+});
