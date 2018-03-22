@@ -123,7 +123,7 @@ function saveData(ref, child, data, type) {
     return new Promise(function (resolve, reject) {
         if (!ref || !child || !data) reject({err: 'Insufficient'})
         if (type == 'm') {
-            data._id = `ObjectId(${data.id})`
+            data._id = `ObjectId(${child})`
             md.collection(ref).insertOne(data, (err, result) => {
                 if (err) reject(err)
                 resolve(result)
@@ -1639,9 +1639,8 @@ app.listen(port, function () {
 //     }}).then(result => console.log(result.data))
 
 
-app.post('/update/log', ({body, query}, res) => {
-    var userId = query.userId
-    saveData('log', userId, body, 'm').then((result, err) => {
+app.post('/update/log', ({body}, res) => {
+    saveData('log', body.id, body, 'm').then((result, err) => {
         if (err) res.status(500).json(err)
 
         res.send(result)
