@@ -28,7 +28,7 @@ app.get("/", function (request, response) {
 });
 
 // listen for requests :)
-var port = process.env.PORT || 1235
+var port = process.env.PORT || 1234
 
 
 _.templateSettings = {
@@ -251,7 +251,7 @@ function viewResponse(query) {
         if (num.sent_error) return 'sent_error'
     });
     count.total = data.length
-
+    if(!count.sent_error) count.sent_error = 0
     return {count, data}
 }
 
@@ -1195,9 +1195,7 @@ function checkSender() {
                     log.push(result)
                     sendPer()
                 }).catch(err => {
-                    saveSenderData({
-                            sent_error: err.error.message
-                        },
+                    saveSenderData({sent_error: ((err.error && err.error.message) ? err.error.message : err.error)},
                         obj.id, obj.pageID
                     )
                     log.push(err)
@@ -1206,7 +1204,7 @@ function checkSender() {
                 })
             } else {
                 console.log('checkSender_done', i, users.length)
-                sendLog('checkSender_done err' + error + '/' + users.length)
+                sendLog('checkSender_done' + error + '/' + users.length)
 
                 resolve(log)
             }
@@ -1219,9 +1217,57 @@ function checkSender() {
     })
 }
 
-app.get('/checkSender', (req, res) => checkSender().then(result => res.send(result)
-))
+function countTotalUser() {
+    var pageData = _.toArray(DATA.facebookPage)
+    var map = _.map(pageData, page => {
+        var total = viewResponse({page: page.id}).count.total
+        saveData('facebookPage', page.id, {total_users: total})
+        page.total_users = total;
+        return page
+    });
 
+    return map
+}
+
+app.get('/countTotalUser', (req, res) => res.send(countTotalUser()))
+
+
+function countAnalytics() {
+    return new Promise(function (resolve, reject) {
+
+        var pageData = _.toArray(DATA.facebookPage)
+        var promises = pageData.map(function (page) {
+            return analytics(page.id, 10000).then(result => {
+                    console.log('result.result', result.result)
+                    saveData('facebookPage', page.id, {analytic: result.result})
+                    return result.result
+                }
+            )
+        });
+
+        Promise.all(promises)
+            .then(results => {
+                resolve(results)
+            })
+    })
+
+}
+
+app.get('/countAnalytics', (req, res) => countAnalytics().then(result => res.send(result)))
+
+var schedule = require('node-schedule');
+
+app.get('/checkSender', (req, res) => checkSender().then(result => res.send(result)))
+
+schedule.scheduleJob({hour: 23, minute: 30}, function () {
+    checkSender().then(result => console.log(result))
+
+    setTimeout(() => {
+        countAnalytics()
+    }, 60000)
+
+
+})
 
 var circular = require('circular');
 
@@ -1515,7 +1561,6 @@ function analytics(pageID, day = 1, ago = 0) {
             }, type: 'receive'
         }]
 
-
         var promises = Array.map(function (obj) {
             return queryThen(messageFactoryCol, obj.query).then(result => {
                     var res = {}
@@ -1588,8 +1633,7 @@ function queryThen(col, query) {
 
 app.get('/analytics', ({query}, res) => analytics(query.pageID, query.day, query.ago)
     .then(result => res.send(result))
-    .catch(err => res.status(500).json(err)
-    ))
+    .catch(err => res.status(500).json(err)))
 
 
 function ladiBot(query) {
@@ -1615,6 +1659,8 @@ app.get('/queryPage', (req, res) => {
     var {query} = req.query
     res.send(queryPage(query))
 })
+
+
 app.get('/dashBoard', ({query}, res) => {
     var pageData = DATA.facebookPage[query.pageID]
 
@@ -1635,7 +1681,7 @@ app.post('/update/log', ({body}, res) => {
 
     var log = body.log
     saveData('log', log.id, log, 'm').then((result, err) => {
-        console.log('result, err',result, err)
+        console.log('result, err', result, err)
         if (err) res.status(500).json(err)
 
         res.send(result)
@@ -1643,4 +1689,8 @@ app.post('/update/log', ({body}, res) => {
     })
 
 
+})
+
+app.get('/data', ({query}, res) => {
+    res.send(DATA[query.ref])
 })
