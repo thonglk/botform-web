@@ -119,15 +119,19 @@ function initData(ref) {
     });
 }
 
-function saveData(ref, child, data) {
+function saveData(ref, child, data, type) {
     return new Promise(function (resolve, reject) {
         if (!ref || !child || !data) reject({err: 'Insufficient'})
+        if (type == 'm') {
+            data._id = `ObjectId(${data.id})`
+            md.collection(ref).insertOne(data, (err, result) => {
+                if (err) reject(err)
+                resolve(result)
+            })
 
-        db.ref(ref).child(child).update(data)
-            .then(result => resolve(data)
-            )
-            .catch(err => reject(err)
-            )
+        } else db.ref(ref).child(child).update(data)
+            .then(result => resolve(data))
+            .catch(err => reject(err))
     })
 }
 
@@ -151,20 +155,19 @@ var uri = 'mongodb://joboapp:joboApp.1234@ec2-54-157-20-214.compute-1.amazonaws.
 
 const MongoClient = require('mongodb');
 
-var md, dumpling_messageFactoryCol, ladiBotCol, ladiResCol, messageFactoryCol
+var md, dumpling_messageFactoryCol, ladiBotCol, ladiResCol, messageFactoryCol, logCol
 
-MongoClient.connect(uri, function (err, db) {
-    console.log(err);
+MongoClient.connect(uri, (err, db) => {
+    if (err) console.log(err);
 
     md = db;
     dumpling_messageFactoryCol = md.collection('dumpling_messageFactory');
     messageFactoryCol = md.collection('messageFactory');
     ladiBotCol = md.collection('ladiBot_flow')
     ladiResCol = md.collection('ladiBot_response')
-
+    logCol = md.collection('log')
     console.log("Connected correctly to server.");
-
-});
+})
 
 
 firebase.initializeApp({
@@ -284,8 +287,7 @@ function updateFbId(pageID) {
                             var roles = DATA.facebookPage[pageID].roles.data
                             var admin = _.findWhere(roles, {id: user.fbId})
                             if (admin) {
-                                saveData('account', user.id, {role: admin.role}).then(result => console.log('save', result)
-                                )
+                                saveData('account', user.id, {role: admin.role}).then(result => console.log('save', result))
                             }
 
                         }
@@ -755,7 +757,7 @@ function getBotfromPageID(pageID) {
     return result;
 }
 
-function  buildMessage(blockName, pageID) {
+function buildMessage(blockName, pageID) {
     return new Promise(function (resolve, reject) {
         var flow = getBotfromPageID(pageID).data
         var allMessages = []
@@ -1102,7 +1104,8 @@ function getTargetUser(spreadsheetId) {
             })
     })
 }
-function sendBroadCast(query, blockName,users) {
+
+function sendBroadCast(query, blockName, users) {
     return new Promise(function (resolve, reject) {
 
         var pageID = query.pageID;
@@ -1110,11 +1113,11 @@ function sendBroadCast(query, blockName,users) {
         saveData('broadcast', broadCast.id, broadCast)
         buildMessage(blockName, pageID)
             .then(messages => {
-                if(!users){
+                if (!users) {
                     var result = viewResponse(query)
                     users = result.data
                 }
-                console.log('sendBroadCast_start',query, blockName, users.length)
+                console.log('sendBroadCast_start', query, blockName, users.length)
 
                 var i = -1
                 var success = 0
@@ -1152,16 +1155,12 @@ function sendBroadCast(query, blockName,users) {
 }
 
 app.get('/sendBroadCast', ({query}, res) => {
-        if(query.sheetId) getTargetUser(query.sheetId).then(result => sendBroadCast({pageID:query.pageID}, query.blockName,result.data)
-                .then(result => res.send(result))
-                .catch(err => res.status(500).json(err)))
-         else sendBroadCast(query, query.blockName)
-            .then(result => res.send(result))
-            .catch(err => res.status(500).json(err))
-
-
-
-
+    if (query.sheetId) getTargetUser(query.sheetId).then(result => sendBroadCast({pageID: query.pageID}, query.blockName, result.data)
+        .then(result => res.send(result))
+        .catch(err => res.status(500).json(err)))
+    else sendBroadCast(query, query.blockName)
+        .then(result => res.send(result))
+        .catch(err => res.status(500).json(err))
 
 
 })
@@ -1230,7 +1229,6 @@ function checkSender() {
 
 app.get('/checkSender', (req, res) => checkSender().then(result => res.send(result)
 ))
-
 
 
 var circular = require('circular');
@@ -1615,7 +1613,7 @@ function queryPage(query) {
         else return false
     })
 
-    var sort = _.sortBy(data,per => {
+    var sort = _.sortBy(data, per => {
         return -per.fan_count
     })
     return sort
@@ -1626,9 +1624,9 @@ app.get('/queryPage', (req, res) => {
     res.send(queryPage(query))
 })
 app.get('/dashBoard', ({query}, res) => {
-    var pageData =DATA.facebookPage[query.pageID]
+    var pageData = DATA.facebookPage[query.pageID]
 
-     pageData.bot = getBotfromPageID(query.pageID)
+    pageData.bot = getBotfromPageID(query.pageID)
     res.send(pageData)
 })
 
@@ -1641,6 +1639,14 @@ app.listen(port, function () {
 //     }}).then(result => console.log(result.data))
 
 
-// axios.get('http://tinchi2.ftu.edu.vn/default.aspx?MenuId=0&page=dangkytc2&ChuyenNganh=1',{ headers: {
-//         Cookie: "_ga=GA1.3.1449132872.1521011410; ASP.NET_SessionId=n0cdk2330palrqt4jzi00q0j"
-//     }}).then(result => console.log(result.data)).catch(err => console.log(err))
+app.post('/update/log', ({body, query}, res) => {
+    var userId = query.userId
+    saveData('log', userId, body, 'm').then((result, err) => {
+        if (err) res.status(500).json(err)
+
+        res.send(result)
+
+    })
+
+
+})
