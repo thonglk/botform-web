@@ -1103,6 +1103,7 @@ function sendBroadCast(query, blockName, users) {
         var pageID = query.pageID;
         var broadCast = {query, blockName, createdAt: Date.now(), id: Date.now()}
         saveData('broadcast', broadCast.id, broadCast)
+
         buildMessage(blockName, pageID)
             .then(messages => {
                 if (!users) {
@@ -1161,9 +1162,8 @@ function loadBroadCast(pageID) {
     return new Promise(function (resolve, reject) {
         var broadCast = DATA['broadcast']
         var res = _.filter(broadCast, cast => {
-            if (cast.query.page == pageID
-            )
-                return true
+            if (cast.query && cast.query.pageID == pageID) return true
+            else false
         })
         console.log('broadCast', broadCast)
         resolve(res)
