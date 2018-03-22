@@ -337,7 +337,6 @@ app.get('/updateFbIdAll', ({query}, res) => updateFbIdAll().then(result => res.s
 
 function userUpdate(body) {
     return new Promise((resolve, reject) => {
-        console.log('body', body)
         var user = body
         if (!user.id) res.status(500).json({err: 'no userID'})
 
@@ -418,15 +417,8 @@ function getLongLiveToken(shortLiveToken) {
     return new Promise((resolve, reject) => {
         const url = `https://graph.facebook.com/oauth/access_token?grant_type=fb_exchange_token&client_id=295208480879128&client_secret=4450decf6ea88c391f4100b5740792ae&fb_exchange_token=${shortLiveToken}`;
         axios.get(url)
-            .then(res => {
-                console.log('getLongLiveToken', res.data)
-                resolve(res.data)
-            })
-            .catch(err => {
-                reject(err.response
-                )
-                ;
-            })
+            .then(res => resolve(res.data))
+            .catch(err => reject(err.response))
         ;
     })
         ;
@@ -1640,7 +1632,10 @@ app.listen(port, function () {
 
 
 app.post('/update/log', ({body}, res) => {
-    saveData('log', body.id, body, 'm').then((result, err) => {
+
+    var log = body.log
+    saveData('log', log.id, log, 'm').then((result, err) => {
+        console.log('result, err',result, err)
         if (err) res.status(500).json(err)
 
         res.send(result)
