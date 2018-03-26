@@ -1276,15 +1276,16 @@ var secret = '6p6sa9oy8ayj8fn1n44kyoxzrk8g4wo0'
 
 function paybank(query) {
     return new Promise(function (resolve, reject) {
-        var order_id = encodeURI('Botform_PRO_1')
-        var order_info = encodeURI('1_month')
-        var amount = 350000
+        var id = query.id || 'new'
+        var order_id = encodeURI('BotformPRO_1')
+        var order_info = encodeURI('1_month_'+ id)
+        var amount = query.amount || 350000
         if (query.type == 6) {
-            order_id = encodeURI('Botform_PRO_6')
-            order_info = encodeURI('6_months_get_1_month_free)')
+            order_id = encodeURI('BotformPRO_6')
+            order_info = encodeURI('6_month_'+ id)
             amount = 350000 * 6
         }
-        var urlParameters = `access_key=clbgp35br12gb6j3oq6h&amount=${amount}&command=request_transaction&order_id=${order_id}&order_info=${order_info}&return_url=https://m.me/160957044542923?ref=go_buy-success`
+        var urlParameters = `access_key=clbgp35br12gb6j3oq6h&amount=${amount}&command=request_transaction&order_id=${order_id}&order_info=${order_info}&return_url=https://m.me/206881183192113?ref=go_buy-success_${id}`
         var signature = crypto.createHmac('sha256', secret).update(urlParameters, 'utf8').digest('hex');
         var fullurl = urlParameters + '&signature=' + signature
 
@@ -1293,15 +1294,13 @@ function paybank(query) {
             )
             .catch(err => reject(JSON.stringify(err, circular()))
             )
-
     })
 
 }
 
-app.get('/paybank', ({query}, res) => paybank(query).then(result => res.send(result)
-)
-    .catch(err => res.status(500).json(err)
-    ))
+app.get('/paybank', ({query}, res) => paybank(query)
+    .then(result => res.send(result))
+    .catch(err => res.status(500).json(err)))
 
 
 app.get('/paybankButton', ({query}, res) => {
@@ -1672,10 +1671,6 @@ app.get('/dashBoard', ({query}, res) => {
 app.listen(port, function () {
     console.log('Node app is running on port', port);
 });
-// axios.get('https://web.mastersocial.io/getInfo.php?note=&uid=100003155374518',{ headers: {
-//         Cookie: "__cfduid=d249178942b1143e2dbf5124910b3facc1521567934; PHPSESSID=kkuhf1o92hp490epnuf58h5hs5; _ga=GA1.2.339640636.1521567937; _gid=GA1.2.1246170553.1521567937;"
-//     }}).then(result => console.log(result.data))
-
 
 app.post('/update/log', ({body}, res) => {
 
@@ -1685,10 +1680,7 @@ app.post('/update/log', ({body}, res) => {
         if (err) res.status(500).json(err)
 
         res.send(result)
-
     })
-
-
 })
 
 app.get('/data', ({query}, res) => {
