@@ -428,6 +428,7 @@ function getFullPageInfo(pageID, access_token) {
     return new Promise((resolve, reject) => {
         graph.get('/me/?fields=name,id,fan_count,roles,location&access_token=' + access_token, (err, result) => {
             if (err || result.message) reject(err)
+
             saveData('facebookPage', pageID, result)
                 .then(result => resolve(result))
                 .catch(err => reject(err))
@@ -1176,9 +1177,9 @@ app.get('/loadBroadCast', ({query}, res) => loadBroadCast(query.pageID).then(res
 ))
 
 
-function checkSender() {
+function checkSender(pageID) {
     return new Promise(function (resolve, reject) {
-        var users = _.toArray(dataAccount)
+        var users = _.where(dataAccount,{pageID})
         var i = -1
         var log = []
         var error = 0
@@ -1257,7 +1258,7 @@ app.get('/countAnalytics', (req, res) => countAnalytics().then(result => res.sen
 
 var schedule = require('node-schedule');
 
-app.get('/checkSender', (req, res) => checkSender().then(result => res.send(result)))
+app.get('/checkSender', ({query}, res) => checkSender(query.pageID).then(result => res.send(result)))
 
 schedule.scheduleJob({hour: 23, minute: 30}, function () {
     checkSender().then(result => console.log(result))
@@ -1300,7 +1301,7 @@ function paybank(query) {
 
 app.get('/paybank', ({query}, res) => paybank(query)
     .then(result => res.send(result))
-    .catch(err => res.status(500).json(err)))
+    .catch(err => res.status(500).json(err)));
 
 
 app.get('/paybankButton', ({query}, res) => {
@@ -1365,7 +1366,25 @@ function setDefautMenu(page = 'jobo', persistent_menu, branding = true) {
     var pageData = _.findWhere(getAllPage(), {id: page})
     var access_token = pageData.access_token
 
-    return new Promise(function (resolve, reject) {
+    if(persistent_menu[0].call_to_actions.length == 0) return new Promise(function (resolve, reject) {
+        request({
+            uri: 'https://graph.facebook.com/v2.6/me/messenger_profile',
+            qs: {access_token: access_token},
+            method: 'DELETE',
+            json: {'fields':['persistent_menu']}
+
+        }, function (error, response, body) {
+            console.log("delete DefautMenu", error, body);
+
+            if (!error && response.statusCode == 200) {
+                resolve(body)
+            } else {
+                reject(error)
+
+            }
+        });
+    })
+    else return new Promise(function (resolve, reject) {
         request({
             uri: 'https://graph.facebook.com/v2.6/me/messenger_profile',
             qs: {access_token: access_token},
@@ -1648,8 +1667,18 @@ function queryPage(query) {
         else return false
     })
 
-    var sort = _.sortBy(data, per => {
-        return -per.fan_count
+    var withAdmin = _.map(data,per =>{
+            var where = _.filter(dataAccount,acc =>{
+                if(acc.role && acc.pageID == per.id) return true
+            })
+            per.admin = where
+            return per
+        })
+
+
+    var sort = _.sortBy(withAdmin, per => {
+        if(per.fan_count) return -per.fan_count
+        else return 0
     })
     return sort
 }
@@ -1674,7 +1703,7 @@ app.listen(port, function () {
 
 app.post('/update/log', ({body}, res) => {
 
-    var log = body.log
+    var log = body.log;
     saveData('log', log.id, log, 'm').then((result, err) => {
         console.log('result, err', result, err)
         if (err) res.status(500).json(err)
@@ -1686,3 +1715,4 @@ app.post('/update/log', ({body}, res) => {
 app.get('/data', ({query}, res) => {
     res.send(DATA[query.ref])
 })
+
