@@ -1179,7 +1179,8 @@ app.get('/loadBroadCast', ({query}, res) => loadBroadCast(query.pageID).then(res
 
 function checkSender(pageID) {
     return new Promise(function (resolve, reject) {
-        var users = _.where(dataAccount,{pageID})
+        if(pageID) var users = _.where(dataAccount,{pageID})
+        else users = _.toArray(dataAccount)
         var i = -1
         var log = []
         var error = 0
@@ -1191,8 +1192,7 @@ function checkSender(pageID) {
 
                 var obj = users[i]
                 sendTypingOn(obj.id, obj.pageID).then(result => {
-                    saveSenderData({sent_error: null}, obj.id, obj.pageID
-                    )
+                    saveSenderData({sent_error: null}, obj.id, obj.pageID)
                     log.push(result)
                     sendPer()
                 }).catch(err => {
