@@ -1667,16 +1667,8 @@ function queryPage(query) {
         else return false
     })
 
-    var withAdmin = _.map(data,per =>{
-            var where = _.filter(dataAccount,acc =>{
-                if(acc.role && acc.pageID == per.id) return true
-            })
-            per.admin = where
-            return per
-        })
 
-
-    var sort = _.sortBy(withAdmin, per => {
+    var sort = _.sortBy(data, per => {
         if(per.fan_count) return -per.fan_count
         else return 0
     })
@@ -1712,7 +1704,5 @@ app.post('/update/log', ({body}, res) => {
     })
 })
 
-app.get('/data', ({query}, res) => {
-    res.send(DATA[query.ref])
-})
+
 
