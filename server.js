@@ -1549,7 +1549,7 @@ function subscribed_apps(access_token, pageID) {
 function setWhiteListDomain(domain,pageID) {
     var mes = {
         "whitelisted_domains": [domain]
-    }
+    };
 
     return new Promise(function (resolve, reject) {
         request({
@@ -1573,8 +1573,9 @@ function setWhiteListDomain(domain,pageID) {
 
 }
 
-app.get('/setWhiteListDomain', ({query}, res) => setWhiteListDomain(query.domain,query.pageID).then(result => res.send(result))
-        .catch(err => res.status(500).json(err))
+app.get('/setWhiteListDomain', ({query}, res) => setWhiteListDomain(query.domain,query.pageID)
+    .then(result => res.send(result))
+    .catch(err => res.status(500).json(err))
 );
 function removeChatfuelBranding(pageID) {
     return new Promise(function (resolve, reject) {
