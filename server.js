@@ -251,7 +251,7 @@ function viewResponse(query) {
         if (num.sent_error) return 'sent_error'
     });
     count.total = data.length
-    if(!count.sent_error) count.sent_error = 0
+    if (!count.sent_error) count.sent_error = 0
     return {count, data}
 }
 
@@ -287,8 +287,9 @@ function updateFbId(pageID) {
                             var roles = DATA.facebookPage[pageID].roles.data
                             var admin = _.findWhere(roles, {id: user.fbId})
                             if (admin) {
-                                saveData('account', user.id, {role: admin.role}).then(result => console.log('save', result))
+
                             }
+
 
                         }
 
@@ -330,10 +331,6 @@ function updateFbIdAll() {
     })
 
 }
-
-app.get('/updateFbIdAll', ({query}, res) => updateFbIdAll().then(result => res.send(result)
-).catch(err => res.status(500).json(err)
-))
 
 function userUpdate(body) {
     return new Promise((resolve, reject) => {
@@ -380,10 +377,46 @@ function userUpdate(body) {
     })
 }
 
-app.post('/user/update', ({body}, res) => userUpdate(body).then(result => res.send(result)
-).catch(err => res.status(500).json(err)
-))
-;
+
+function userGetUpdate({accessToken}) {
+    return new Promise((resolve, reject) => {
+
+        getLongLiveToken(accessToken).then(token => {
+            var access_token = token.access_token
+            console.log('access_token', access_token)
+
+            graph.get('/me?fields=email,name,location&access_token=' + access_token, (err, user) => {
+
+                user.access_token = access_token
+                graph.get('/me/accounts?limit=100&access_token=' + access_token, (err, pageList) => {
+                    if (err) reject(err)
+                    user.pageList = pageList.data
+                    user.updatedAt = Date.now()
+                    if (!DATA.user[user.id]) user.createdAt = Date.now()
+
+                    saveData('user', user.id, user)
+                        .then(result => resolve(user))
+                        .catch(err => reject(err))
+                })
+            })
+
+
+        })
+
+
+    })
+}
+
+app.get('/user/update', ({query}, res) => userGetUpdate(query)
+    .then(result => res.send(result))
+    .catch(err => res.status(500).json(err)))
+
+
+app.post('/user/update', ({body}, res) => userUpdate(body)
+    .then(result => res.send(result))
+    .catch(err => res.status(500).json(err)
+    ))
+
 
 function userUpdateAll() {
     var toArray = _.toArray(DATA.user)
@@ -411,6 +444,44 @@ function userUpdateAll() {
     })
 }
 
+
+app.get('/updateFbIdAll', ({query}, res) => updateFbIdAll()
+    .then(result => res.send(result))
+    .catch(err => res.status(500).json(err)))
+
+var date = new Date()
+var day = date.getUTCDate()
+var month = date.getUTCMonth()
+var year = date.getFullYear()
+var start = `${day}/${month}/${year}`
+
+
+function updateRolesbyPage(pageID) {
+    var adminList = []
+    var userofPage = _.where(dataAccount, {pageID})
+    var facebookPage = DATA.facebookPage
+    var map = _.map(userofPage, user => {
+        if (facebookPage[pageID].roles && facebookPage[pageID].roles.data) {
+            var roles = facebookPage[pageID].roles.data
+            var admin = _.filter(roles, role => {
+                console.log('role', role.name, user.first_name, user.last_name)
+                if (user.first_name && user.last_name && role.name.match(user.first_name)
+                    && role.name.match(user.last_name)
+                ) return true
+            })
+            if (admin[0]) {
+                user.role = admin[0].role
+                adminList.push(user)
+            }
+        }
+    })
+    return {adminList, page: facebookPage[pageID]}
+
+}
+
+app.get('/updateRolesbyPage', ({query}, res) => res.send(updateRolesbyPage(query.pageID)))
+
+
 function getLongLiveToken(shortLiveToken) {
     console.log('getLongLiveToken-ing', shortLiveToken)
 
@@ -419,9 +490,9 @@ function getLongLiveToken(shortLiveToken) {
         axios.get(url)
             .then(res => resolve(res.data))
             .catch(err => reject(err.response))
-        ;
+
     })
-        ;
+
 }
 
 function getFullPageInfo(pageID, access_token) {
@@ -434,9 +505,67 @@ function getFullPageInfo(pageID, access_token) {
                 .catch(err => reject(err))
         })
     })
-
-
 }
+
+
+function debugToken(longLiveToken) {
+    return new Promise((resolve, reject) => {
+        const appToken = '295208480879128|pavmPhKnN9VWZXLC6TdxLxoYFiY'
+        const url = `https://graph.facebook.com/debug_token?input_token=${longLiveToken}&access_token=295208480879128|pavmPhKnN9VWZXLC6TdxLxoYFiY`;
+
+        axios.get(url)
+            .then(result => resolve(result.data))
+            .catch(err => reject(err));
+    });
+}
+
+app.get('/debugTokenAll', ({query}, res) => {
+    var toArray = _.toArray(DATA.facebookPage)
+    var resultArray = []
+    return new Promise((resolve, reject) => {
+
+        var i = -1
+
+        function sendPer() {
+            i++
+            console.log('sendPer', i, toArray.length)
+
+            if (i < toArray.length) {
+                var page = toArray[i]
+                debugToken(page.access_token).then(result => {
+                    resultArray.push(result)
+
+                    var error = null
+                    if(result.data.error) error = result.data.error
+                    console.log('result',error)
+
+                    saveData('facebookPage', page.id, {error})
+                        .then(result => resolve(result))
+                        .catch(err => reject(err))
+
+
+                    sendPer()
+                })
+                    .catch(error => {
+                        console.log('error',error)
+
+                        resultArray.push(error)
+
+                        saveData('facebookPage', page.id, {error})
+                            .then(result => resolve(result))
+                            .catch(err => reject(err))
+
+                        sendPer()
+                    })
+            } else resolve(resultArray)
+
+        }
+
+        sendPer()
+    })
+
+})
+
 
 function getFullaPageAll(pageList) {
     return new Promise((resolve, reject) => {
@@ -458,7 +587,6 @@ function getFullaPageAll(pageList) {
                     resolve(results)
                 }
             )
-
 
     })
 }
@@ -1179,7 +1307,7 @@ app.get('/loadBroadCast', ({query}, res) => loadBroadCast(query.pageID).then(res
 
 function checkSender(pageID) {
     return new Promise(function (resolve, reject) {
-        if(pageID) var users = _.where(dataAccount,{pageID})
+        if (pageID) var users = _.where(dataAccount, {pageID})
         else users = _.toArray(dataAccount)
         var i = -1
         var log = []
@@ -1279,11 +1407,11 @@ function paybank(query) {
     return new Promise(function (resolve, reject) {
         var id = query.id || 'new'
         var order_id = encodeURI('BotformPRO_1')
-        var order_info = encodeURI('1_month_'+ id)
+        var order_info = encodeURI('1_month_' + id)
         var amount = query.amount || 350000
         if (query.type == 6) {
             order_id = encodeURI('BotformPRO_6')
-            order_info = encodeURI('6_month_'+ id)
+            order_info = encodeURI('6_month_' + id)
             amount = 350000 * 6
         }
         var urlParameters = `access_key=clbgp35br12gb6j3oq6h&amount=${amount}&command=request_transaction&order_id=${order_id}&order_info=${order_info}&return_url=https://m.me/206881183192113?ref=go_buy-success_${id}`
@@ -1350,6 +1478,7 @@ function setDefautMenu(page = 'jobo', persistent_menu, branding = true) {
         ]
     }
 
+
     if (branding) persistent_menu = persistent_menu.map(per => {
         per.call_to_actions.push({
             "title": "Create a bot in Botform",
@@ -1366,12 +1495,12 @@ function setDefautMenu(page = 'jobo', persistent_menu, branding = true) {
     var pageData = _.findWhere(getAllPage(), {id: page})
     var access_token = pageData.access_token
 
-    if(persistent_menu[0].call_to_actions.length == 0) return new Promise(function (resolve, reject) {
+    if (persistent_menu[0].call_to_actions.length == 0) return new Promise(function (resolve, reject) {
         request({
             uri: 'https://graph.facebook.com/v2.6/me/messenger_profile',
             qs: {access_token: access_token},
             method: 'DELETE',
-            json: {'fields':['persistent_menu']}
+            json: {'fields': ['persistent_menu']}
 
         }, function (error, response, body) {
             console.log("delete DefautMenu", error, body);
@@ -1416,6 +1545,12 @@ function subscribed_apps(access_token, pageID) {
 
     })
 }
+app.get('/subscribed_apps', function (req, res) {
+    var {pageID} = req.query
+    subscribed_apps(DATA.facebookPage[pageID].access_token,pageID)
+        .then(result => res.send(result))
+        .catch(err => res.status(500).json(err))
+})
 
 function removeChatfuelBranding(pageID) {
     return new Promise(function (resolve, reject) {
@@ -1539,8 +1674,7 @@ function getAllPage() {
     return allPage
 }
 
-app.get('/getAllPage', ({query}, res) => res.send(getAllPage())
-)
+app.get('/getAllPage', ({query}, res) => res.send(getAllPage()))
 
 /// Analytics
 
@@ -1667,9 +1801,17 @@ function queryPage(query) {
         else return false
     })
 
+    var withAdmin = _.map(data, per => {
+        var where = _.filter(dataAccount, acc => {
+            if (acc.role && acc.pageID == per.id) return true
+        })
+        per.admin = where
+        return per
+    })
 
-    var sort = _.sortBy(data, per => {
-        if(per.fan_count) return -per.fan_count
+
+    var sort = _.sortBy(withAdmin, per => {
+        if (per.fan_count) return -per.fan_count
         else return 0
     })
     return sort
@@ -1702,6 +1844,14 @@ app.post('/update/log', ({body}, res) => {
 
         res.send(result)
     })
+})
+
+
+app.get('/data', ({query}, res) => {
+    axios.post('http://localhost:8081/saveData?sheetId=' + query.sheetId, DATA[query.ref])
+        .then(result => res.send(DATA[query.ref]))
+        .catch(err => res.status(500).json(err))
+
 })
 
 
