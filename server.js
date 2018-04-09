@@ -1545,13 +1545,37 @@ function subscribed_apps(access_token, pageID) {
 
     })
 }
-app.get('/subscribed_apps', function (req, res) {
-    var {pageID} = req.query
-    subscribed_apps(DATA.facebookPage[pageID].access_token,pageID)
-        .then(result => res.send(result))
-        .catch(err => res.status(500).json(err))
-})
 
+function setWhiteListDomain(domain,pageID) {
+    var mes = {
+        "whitelisted_domains": [domain]
+    }
+
+    return new Promise(function (resolve, reject) {
+        request({
+            uri: 'https://graph.facebook.com/v2.12/me/messenger_profile',
+            qs: {access_token: DATA.facebookPage[pageID].access_token},
+            method: 'POST',
+            json: mes
+
+        }, function (error, response, body) {
+            if (!error && response.statusCode == 200) {
+
+                resolve(response)
+
+            } else {
+                console.error("setWhiteListDomain_error", response.statusMessage);
+                reject(error)
+
+            }
+        });
+    })
+
+}
+
+app.get('/setWhiteListDomain', ({query}, res) => setWhiteListDomain(query.domain,query.pageID).then(result => res.send(result))
+        .catch(err => res.status(500).json(err))
+);
 function removeChatfuelBranding(pageID) {
     return new Promise(function (resolve, reject) {
         var pageData = _.findWhere(getAllPage(), {id: pageID})
