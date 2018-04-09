@@ -536,9 +536,8 @@ app.get('/debugTokenAll', ({query}, res) => {
                     resultArray.push(result)
 
                     var error = null
-                    if(result.data.error) error = result.data.error
-                    console.log('result',error)
-
+                    if (result.data.error) error = result.data.error
+                    console.log('result', error)
                     saveData('facebookPage', page.id, {error})
                         .then(result => resolve(result))
                         .catch(err => reject(err))
@@ -547,7 +546,7 @@ app.get('/debugTokenAll', ({query}, res) => {
                     sendPer()
                 })
                     .catch(error => {
-                        console.log('error',error)
+                        console.log('error', error)
 
                         resultArray.push(error)
 
@@ -1479,56 +1478,45 @@ function setDefautMenu(page = 'jobo', persistent_menu, branding = true) {
     }
 
 
-    if (branding) persistent_menu = persistent_menu.map(per => {
-        per.call_to_actions.push({
-            "title": "Create a bot in Botform",
-            "type": "web_url",
-            "url": "https://app.botform.asia/create"
-        })
-        return per
-    })
+    if (DATA.facebookPage[page] && DATA.facebookPage[page].init) {
+        var init = DATA.facebookPage[page].init
+
+        if (!init.branding && branding) {
+            init.branding = Date.now()
+            persistent_menu = persistent_menu.map(per => {
+                per.call_to_actions.push({
+                    "title": "Create a bot in Botform",
+                    "type": "web_url",
+                    "url": "https://app.botform.asia/create"
+                })
+                return per
+            })
+
+            saveData('facebookPage', page, {init})
+
+        }
+    }
 
 
     var menu = {persistent_menu}
 
     console.log("setDefautMenu-ing", page, menu);
-    var pageData = _.findWhere(getAllPage(), {id: page})
-    var access_token = pageData.access_token
 
-    if (persistent_menu[0].call_to_actions.length == 0) return new Promise(function (resolve, reject) {
+    return new Promise(function (resolve, reject) {
         request({
-            uri: 'https://graph.facebook.com/v2.6/me/messenger_profile',
-            qs: {access_token: access_token},
-            method: 'DELETE',
-            json: {'fields': ['persistent_menu']}
-
-        }, function (error, response, body) {
-            console.log("delete DefautMenu", error, body);
-
-            if (!error && response.statusCode == 200) {
-                resolve(body)
-            } else {
-                reject(error)
-
-            }
-        });
-    })
-    else return new Promise(function (resolve, reject) {
-        request({
-            uri: 'https://graph.facebook.com/v2.6/me/messenger_profile',
-            qs: {access_token: access_token},
+            uri: 'https://graph.facebook.com/v2.12/me/messenger_profile',
+            qs: {access_token: DATA.facebookPage[page].access_token},
             method: 'POST',
             json: menu
 
         }, function (error, response, body) {
-            console.log("setDefautMenu", error, body);
+            console.log("setDefautMenu", error, body, persistent_menu);
+            console.log('form', form)
 
-            if (!error && response.statusCode == 200) {
-                resolve(body)
-            } else {
-                reject(error)
+            if (error) reject(error)
 
-            }
+            resolve(body)
+
         });
     })
 
@@ -1546,7 +1534,7 @@ function subscribed_apps(access_token, pageID) {
     })
 }
 
-function setWhiteListDomain(domain,pageID) {
+function setWhiteListDomain(domain, pageID) {
     var mes = {
         "whitelisted_domains": [domain]
     };
@@ -1573,10 +1561,11 @@ function setWhiteListDomain(domain,pageID) {
 
 }
 
-app.get('/setWhiteListDomain', ({query}, res) => setWhiteListDomain(query.domain,query.pageID)
+app.get('/setWhiteListDomain', ({query}, res) => setWhiteListDomain(query.domain, query.pageID)
     .then(result => res.send(result))
     .catch(err => res.status(500).json(err))
 );
+
 function removeChatfuelBranding(pageID) {
     return new Promise(function (resolve, reject) {
         var pageData = _.findWhere(getAllPage(), {id: pageID})
@@ -1644,13 +1633,44 @@ function removeRefresh() {
 
         Promise.all(promises)
             .then(results => {
-                sendLog('removeRefreshing'
-                )
                 resolve(results)
             })
     })
 
 }
+
+
+function setMenuAgainAll() {
+    return new Promise(function (resolve, reject) {
+        var list = _.toArray(DATA.facebookPage)
+        console.log('list', list)
+        var promises = list.map(function (obj) {
+            return setDefautMenu(obj.pageID, null, true)
+                .then(results => {
+                        return results
+                    }
+                )
+                .catch(err => {
+                        return err
+                    }
+                )
+        });
+
+        Promise.all(promises)
+            .then(results => {
+                sendLog('setMenuAgainAll')
+                resolve(results)
+            })
+    })
+
+}
+
+app.get('/setMenuAgainAll', (req, res) =>
+    setMenuAgainAll()
+        .then(result => res.send(result)
+        )
+        .catch(err => res.status(500).json(err)
+        ))
 
 function sendLog(text) {
     console.log(text)
@@ -1678,7 +1698,9 @@ function sendLog(text) {
 }
 
 setInterval(function () {
-    removeRefresh()
+    removeRefresh().then(result => sendLog('removeRefreshing'))
+    setMenuAgainAll()
+
 }, 1000 * 60 * 60)
 
 app.get('/removeRefresh', (req, res) =>
@@ -1719,7 +1741,7 @@ function analytics(pageID, day = 1, ago = 0) {
         var createAt = filter.count.total
         var send_error = filter.count.sent_error
 
-        var ref = {}
+        var ref = {};
 
         _.each(filter, num => {
             if (num.ref) {
@@ -1873,7 +1895,7 @@ app.post('/update/log', ({body}, res) => {
 
 
 app.get('/data', ({query}, res) => {
-    axios.post('http://localhost:8081/saveData?sheetId=' + query.sheetId, DATA[query.ref])
+    axios.post('http://joboana.herokuapp.com/saveData?sheetId=' + query.sheetId, DATA[query.ref])
         .then(result => res.send(DATA[query.ref]))
         .catch(err => res.status(500).json(err))
 
