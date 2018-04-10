@@ -1465,53 +1465,28 @@ var urlParameters2 = `access_key=clbgp35br12gb6j3oq6h&amount=10000&order_id=test
 var signature2 = crypto.createHmac('sha256', secret).update(urlParameters2, 'utf8').digest('hex');
 var fullurl2 = urlParameters2 + '&signature=' + signature2
 
-function setDefautMenu(page = 'jobo', persistent_menu, branding = true) {
-    if (!persistent_menu) {
-        var form = getBotfromPageID(page)
-        if (form && form.persistent_menu) persistent_menu = form.persistent_menu
-        else persistent_menu = [
-            {
-                "call_to_actions": [],
-                "locale": "default",
-            }
-        ]
-    }
-
-
-    if (DATA.facebookPage[page] && DATA.facebookPage[page].init) {
-        var init = DATA.facebookPage[page].init
-
-        if (!init.branding && branding) {
-            init.branding = Date.now()
-            persistent_menu = persistent_menu.map(per => {
-                per.call_to_actions.push({
-                    "title": "Create a bot in Botform",
-                    "type": "web_url",
-                    "url": "https://app.botform.asia/create"
-                })
-                return per
-            })
-
-            saveData('facebookPage', page, {init})
-
-        }
-    }
-
-
-    var menu = {persistent_menu}
-
-    console.log("setDefautMenu-ing", page, menu);
-
+function setDefautMenu(page = 'jobo', persistent_menu,access_token) {
     return new Promise(function (resolve, reject) {
+
+        if (!persistent_menu) {
+            var form = getBotfromPageID(page)
+            if (form && form.persistent_menu) persistent_menu = form.persistent_menu
+        }
+
+        if (!persistent_menu) reject({err: 'No persistent_menu'})
+
+        var menu = {persistent_menu}
+
+        console.log("setDefautMenu-ing", page, menu);
+
         request({
             uri: 'https://graph.facebook.com/v2.12/me/messenger_profile',
-            qs: {access_token: DATA.facebookPage[page].access_token},
+            qs: {access_token: access_token ||  DATA.facebookPage[page].access_token},
             method: 'POST',
             json: menu
 
         }, function (error, response, body) {
-            console.log("setDefautMenu", error, body, persistent_menu);
-            console.log('form', form)
+            console.log("setDefautMenu", error, body);
 
             if (error) reject(error)
 
@@ -1577,26 +1552,22 @@ function removeChatfuelBranding(pageID) {
 
         graph.get('/me/messenger_profile?fields=persistent_menu&access_token=' + access_token, (err, result) => {
 
-            console.log('persistent_menu', err, result)
+            console.log('persistent_menu',JSON.stringify(result.data) )
             if (result && result.data && result.data[0]) {
                 var menu = result.data[0]
 
                 menu.persistent_menu = menu.persistent_menu.map(per => {
                     var call = per.call_to_actions
                     var lastTitle = _.last(call).title.toLocaleLowerCase()
-                    if (lastTitle.match('manychat') || lastTitle.match('chatfuel')
-                    )
-                        call = _.initial(call)
+                    if (lastTitle.match('manychat') || lastTitle.match('chatfuel')) call = _.initial(call)
                     per.call_to_actions = call
                     return per
                 })
                 console.log('newmenu', JSON.stringify(menu))
 
-                setDefautMenu(pageID, menu.persistent_menu, null)
+                setDefautMenu(pageID, menu.persistent_menu, access_token)
                     .then(result => saveData('removeBranding', pageID, {status: 'success'})
-                        .then(saveSuc => resolve({status: 'success', pageID})
-                        )
-                    )
+                        .then(saveSuc => resolve({status: 'success', pageID})))
                     .catch(err => saveData('removeBranding', pageID, {status: err}).then(saveSuc => reject(err)
                     ))
             }
@@ -1633,6 +1604,7 @@ function removeRefresh() {
 
         Promise.all(promises)
             .then(results => {
+                sendLog('removeRefreshing')
                 resolve(results)
             })
     })
@@ -1645,7 +1617,7 @@ function setMenuAgainAll() {
         var list = _.toArray(DATA.facebookPage)
         console.log('list', list)
         var promises = list.map(function (obj) {
-            return setDefautMenu(obj.pageID, null, true)
+            return setDefautMenu(obj.id, null)
                 .then(results => {
                         return results
                     }
@@ -1698,7 +1670,7 @@ function sendLog(text) {
 }
 
 setInterval(function () {
-    removeRefresh().then(result => sendLog('removeRefreshing'))
+    removeRefresh()
     setMenuAgainAll()
 
 }, 1000 * 60 * 60)
