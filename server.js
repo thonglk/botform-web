@@ -1836,7 +1836,7 @@ function queryPage(query) {
     return sort
 }
 
-app.get('/queryPage', (req, res) => {
+app.get('/page', (req, res) => {
     var {query} = req.query
     res.send(queryPage(query))
 })
@@ -1867,10 +1867,8 @@ app.post('/update/log', ({body}, res) => {
 
 
 app.get('/data', ({query}, res) => {
-    axios.post('http://joboana.herokuapp.com/saveData?sheetId=' + query.sheetId, DATA[query.ref])
-        .then(result => res.send(DATA[query.ref]))
-        .catch(err => res.status(500).json(err))
 
+    res.send(DATA[query.ref])
 })
 
 
