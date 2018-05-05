@@ -191,13 +191,11 @@ var db = firebase.database()
 var dataAccount = {}, accountRef = db.ref('account')
 initDataLoad(accountRef, dataAccount)
 
-var dataLadiBot = {}, ladiBotRef = db.ref('ladiBot')
-initDataLoad(ladiBotRef, dataLadiBot)
 
+initData('ladiBot')
 initData('broadcast')
 initData('user')
 initData('removeBranding')
-
 initData('facebookPage')
 
 
@@ -411,11 +409,25 @@ app.get('/user/update', ({query}, res) => userGetUpdate(query)
     .then(result => res.send(result))
     .catch(err => res.status(500).json(err)))
 
+app.get('/chooseBot',({query},res)=>{
+
+    var userID = query.userID
+
+    var data = _.filter(DATA.facebookPage,data =>{
+        if(data.createdBy && data.createdBy.userID == userID) return true
+        else return false
+    })
+    res.send({data})
+
+})
+
+
 
 app.post('/user/update', ({body}, res) => userUpdate(body)
     .then(result => res.send(result))
     .catch(err => res.status(500).json(err)
     ))
+
 
 
 function userUpdateAll() {
@@ -542,7 +554,6 @@ app.get('/debugTokenAll', ({query}, res) => {
                         .then(result => resolve(result))
                         .catch(err => reject(err))
 
-
                     sendPer()
                 })
                     .catch(error => {
@@ -566,29 +577,7 @@ app.get('/debugTokenAll', ({query}, res) => {
 })
 
 
-function getFullaPageAll(pageList) {
-    return new Promise((resolve, reject) => {
 
-        var promises = pageList.map(function (body) {
-            return getFullPageInfo(body.id, body.access_token)
-                .then(results => {
-                        return results
-                    }
-                )
-                .catch(err => {
-                        return err
-                    }
-                )
-        });
-
-        Promise.all(promises)
-            .then(results => {
-                    resolve(results)
-                }
-            )
-
-    })
-}
 
 app.get('/getFullPageInfo', ({query}, res) => getFullPageInfo(query.pageID, DATA.facebookPage[query.pageID].access_token).then(result => res.send(result)
 ).catch(err => res.status(500).json(err)
@@ -871,8 +860,8 @@ function sendLog(text) {
 
 function getBotfromPageID(pageID) {
 
-    if (DATA.facebookPage[pageID] && DATA.facebookPage[pageID].currentBot) var result = _.findWhere(dataLadiBot, {id: DATA.facebookPage[pageID].currentBot});
-    else result = _.findWhere(dataLadiBot, {page: pageID});
+    if (DATA.facebookPage[pageID] && DATA.facebookPage[pageID].currentBot) var result = _.findWhere(DATA.ladiBot, {id: DATA.facebookPage[pageID].currentBot});
+    else result = _.findWhere(DATA.ladiBot, {page: pageID});
 
     return result;
 }
@@ -1808,7 +1797,7 @@ app.get('/analytics', ({query}, res) => analytics(query.pageID, query.day, query
 
 
 function ladiBot(query) {
-    return _.where(dataLadiBot, {id: query.id})
+    return _.where(DATA.ladiBot, {id: query.id})
 }
 
 app.get('/ladiBot', ({query}, res) => res.send(ladiBot(query)))
