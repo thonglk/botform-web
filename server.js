@@ -152,12 +152,13 @@ function saveSenderData(data, senderID, page = '493938347612411') {
 }
 
 var uri = 'mongodb://joboapp:joboApp.1234@ec2-54-157-20-214.compute-1.amazonaws.com:27017/joboapp';
+var srv = 'mongodb+srv://jobo:jobo@jobodb-0but3.mongodb.net/test?retryWrites=true'
 
 const MongoClient = require('mongodb');
 
 var md, dumpling_messageFactoryCol, ladiBotCol, ladiResCol, messageFactoryCol, logCol
 
-MongoClient.connect(uri, (err, db) => {
+MongoClient.connect(srv, (err, db) => {
     if (err) console.log(err);
 
     md = db;
@@ -504,7 +505,6 @@ function getLongLiveToken(shortLiveToken) {
             .catch(err => reject(err.response))
 
     })
-
 }
 
 function getFullPageInfo(pageID, access_token) {
