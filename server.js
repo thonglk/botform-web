@@ -158,10 +158,10 @@ const MongoClient = require('mongodb');
 
 var md, dumpling_messageFactoryCol, ladiBotCol, ladiResCol, messageFactoryCol, logCol
 
-MongoClient.connect(srv, (err, db) => {
+MongoClient.connect(srv, (err, client) => {
     if (err) console.log(err);
 
-    md = db;
+    md = client.db('jobodb')
     dumpling_messageFactoryCol = md.collection('dumpling_messageFactory');
     messageFactoryCol = md.collection('messageFactory');
     ladiBotCol = md.collection('ladiBot_flow')
