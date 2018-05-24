@@ -147,8 +147,12 @@ function saveSenderData(data, senderID, page = '493938347612411') {
                 )
         } else reject({err: 'same'})
 
-
     })
+}
+
+function mem() {
+    console.log(`script uses approximately ${Math.round((process.memoryUsage().heapUsed / 1024 / 1024) * 100) / 100} MB`);
+
 }
 
 var uri = 'mongodb://joboapp:joboApp.1234@ec2-54-157-20-214.compute-1.amazonaws.com:27017/joboapp';
@@ -168,6 +172,8 @@ MongoClient.connect(srv, (err, client) => {
     ladiResCol = md.collection('ladiBot_response')
     logCol = md.collection('log')
     console.log("Connected correctly to server.");
+
+    mem()
 })
 
 
@@ -410,12 +416,12 @@ app.get('/user/update', ({query}, res) => userGetUpdate(query)
     .then(result => res.send(result))
     .catch(err => res.status(500).json(err)))
 
-app.get('/chooseBot',({query},res)=>{
+app.get('/chooseBot', ({query}, res) => {
 
     var userID = query.userID
 
-    var data = _.filter(DATA.facebookPage,data =>{
-        if(data.createdBy && data.createdBy.userID == userID) return true
+    var data = _.filter(DATA.facebookPage, data => {
+        if (data.createdBy && data.createdBy.userID == userID) return true
         else return false
     })
     res.send({data})
@@ -423,12 +429,10 @@ app.get('/chooseBot',({query},res)=>{
 })
 
 
-
 app.post('/user/update', ({body}, res) => userUpdate(body)
     .then(result => res.send(result))
     .catch(err => res.status(500).json(err)
     ))
-
 
 
 function userUpdateAll() {
@@ -531,7 +535,9 @@ function debugToken(longLiveToken) {
     });
 }
 
-app.get('/debugTokenAll', ({query}, res) => {
+app.get('/debugToken', ({query}, res) => debugToken(query.token).then(result => res.send(result)).catch(err => res.status(500).json(err)))
+
+function debubTokenAll() {
     var toArray = _.toArray(DATA.facebookPage)
     var resultArray = []
     return new Promise((resolve, reject) => {
@@ -545,21 +551,57 @@ app.get('/debugTokenAll', ({query}, res) => {
             if (i < toArray.length) {
                 var page = toArray[i]
                 debugToken(page.access_token).then(result => {
-                    resultArray.push(result)
+                    console.log('debugToken', result)
+                    if(result.error){
+                        console.log('result.error debugToken', result.error)
 
-                    var error = null
-                    if (result.data.error) error = result.data.error
-                    console.log('result', error)
-                    saveData('facebookPage', page.id, {error})
-                        .then(result => resolve(result))
-                        .catch(err => reject(err))
+                        saveData('facebookPage', page.id, {error: result.error})
+                            .then(result => resolve(result))
+                            .catch(err => reject(err))
 
-                    sendPer()
+                        sendPer()
+
+
+                    } else {
+                        var expires_at = result.expires_at * 1000
+                        var esp = expires_at - Date.now()
+                        var two_day = 1000*60*60*24*2
+
+                        if(esp <  two_day) getLongLiveToken(page.access_token).then(token => {
+                            console.log('getLongLiveToken', token)
+
+
+                            saveData('facebookPage', page.id, {access_token: token.access_token})
+                                .then(result => resolve(result))
+                                .catch(err => reject(err))
+
+
+
+                            sendPer()
+
+
+
+                        }).catch(err => {
+                            console.log('err getLongLiveToken', err)
+                            saveData('facebookPage', page.id, {error: err})
+                                .then(result => resolve(result))
+                                .catch(err => reject(err))
+
+                            sendPer()
+
+                        })
+
+                        else sendPer()
+
+                    }
+
+
+
+
                 })
                     .catch(error => {
-                        console.log('error', error)
+                        console.log('err debugToken', error)
 
-                        resultArray.push(error)
 
                         saveData('facebookPage', page.id, {error})
                             .then(result => resolve(result))
@@ -574,9 +616,9 @@ app.get('/debugTokenAll', ({query}, res) => {
         sendPer()
     })
 
-})
+}
 
-
+app.get('/debugTokenAll', ({query}, res) => debubTokenAll().then(result => res.send(result)).catch(err => res.status(500).json(err)))
 
 
 app.get('/getFullPageInfo', ({query}, res) => getFullPageInfo(query.pageID, DATA.facebookPage[query.pageID].access_token).then(result => res.send(result)
@@ -1380,8 +1422,12 @@ schedule.scheduleJob({hour: 23, minute: 30}, function () {
     checkSender().then(result => console.log(result))
 
     setTimeout(() => {
-        countAnalytics()
+        debubTokenAll()
     }, 60000)
+
+    setTimeout(() => {
+        countAnalytics()
+    }, 60000 * 2)
 
 
 })
@@ -1454,7 +1500,7 @@ var urlParameters2 = `access_key=clbgp35br12gb6j3oq6h&amount=10000&order_id=test
 var signature2 = crypto.createHmac('sha256', secret).update(urlParameters2, 'utf8').digest('hex');
 var fullurl2 = urlParameters2 + '&signature=' + signature2
 
-function setDefautMenu(page = 'jobo', persistent_menu,access_token) {
+function setDefautMenu(page = 'jobo', persistent_menu, access_token) {
     return new Promise(function (resolve, reject) {
 
         if (!persistent_menu) {
@@ -1470,7 +1516,7 @@ function setDefautMenu(page = 'jobo', persistent_menu,access_token) {
 
         request({
             uri: 'https://graph.facebook.com/v2.12/me/messenger_profile',
-            qs: {access_token: access_token ||  DATA.facebookPage[page].access_token},
+            qs: {access_token: access_token || DATA.facebookPage[page].access_token},
             method: 'POST',
             json: menu
 
@@ -1541,7 +1587,7 @@ function removeChatfuelBranding(pageID) {
 
         graph.get('/me/messenger_profile?fields=persistent_menu&access_token=' + access_token, (err, result) => {
 
-            console.log('persistent_menu',JSON.stringify(result.data) )
+
             if (result && result.data && result.data[0]) {
                 var menu = result.data[0]
 
@@ -1713,30 +1759,31 @@ function analytics(pageID, day = 1, ago = 0) {
         ;
 
         result = {lastActive, createAt, send_error, ref}
+        resolve({result, query})
 
-        var Array = [{query: {"sender.id": pageID, "timestamp": {$gte: start, $lte: end}}, type: 'sent'}, {
-            query: {
-                "recipient.id": pageID,
-                "timestamp": {$gte: start, $lte: end}
-            }, type: 'receive'
-        }]
+        // var Array = [{query: {"sender.id": pageID, "timestamp": {$gte: start, $lte: end}}, type: 'sent'}, {
+        //     query: {
+        //         "recipient.id": pageID,
+        //         "timestamp": {$gte: start, $lte: end}
+        //     }, type: 'receive'
+        // }]
 
-        var promises = Array.map(function (obj) {
-            return queryThen(messageFactoryCol, obj.query).then(result => {
-                    var res = {}
-                    res[obj.type] = result.length
-                    return res
-                }
-            )
-        });
 
-        Promise.all(promises)
-            .then(results => {
-                result.sent = results[0].sent
-                result.receive = results[1].receive
-
-                resolve({result, query})
-            })
+        // var promises = Array.map(function (obj) {
+        //     return queryThen(messageFactoryCol, obj.query).then(result => {
+        //             var res = {}
+        //             res[obj.type] = result.length
+        //             return res
+        //         }
+        //     )
+        // });
+        //
+        // Promise.all(promises)
+        //     .then(results => {
+        //         result.sent = results[0].sent
+        //         result.receive = results[1].receive
+        //
+        //     })
 
 
     })
@@ -1859,6 +1906,29 @@ app.get('/data', ({query}, res) => {
 
     res.send(DATA[query.ref])
 })
+
+app.get('/exe', ({query}, res) => {
+    var each = _.forEach(DATA.facebookPage, page => {
+
+        if (page && page.init) {
+            var init = page.init
+            if (init.editId || init.id || init.flow || init.persistent_menu || init.greeting || init.key) {
+                delete init.editId
+                delete init.id
+                delete init.flow
+                delete init.persistent_menu
+                delete init.greeting
+                delete init.key
+                saveData("facebookPage", page.id, {init: init}).then(result => console.log('done', init))
+
+            }
+
+        }
+
+    })
+
+})
+
 
 
 
