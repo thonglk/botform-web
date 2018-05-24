@@ -540,6 +540,7 @@ app.get('/debugToken', ({query}, res) => debugToken(query.token).then(result => 
 function debubTokenAll() {
     var toArray = _.toArray(DATA.facebookPage)
     var resultArray = []
+    var countArray = {debugError:0,getlongError:0,getlong:0,debug:toArray.length}
     return new Promise((resolve, reject) => {
 
         var i = -1
@@ -554,6 +555,7 @@ function debubTokenAll() {
                     console.log('debugToken', result)
                     if(result.error){
                         console.log('result.error debugToken', result.error)
+                        countArray.debugError++
 
                         saveData('facebookPage', page.id, {error: result.error})
                             .then(result => resolve(result))
@@ -569,6 +571,7 @@ function debubTokenAll() {
 
                         if(esp <  two_day) getLongLiveToken(page.access_token).then(token => {
                             console.log('getLongLiveToken', token)
+                            countArray.getlong++
 
 
                             saveData('facebookPage', page.id, {access_token: token.access_token})
@@ -583,6 +586,7 @@ function debubTokenAll() {
 
                         }).catch(err => {
                             console.log('err getLongLiveToken', err)
+                            countArray.getlongError++
                             saveData('facebookPage', page.id, {error: err})
                                 .then(result => resolve(result))
                                 .catch(err => reject(err))
@@ -601,6 +605,7 @@ function debubTokenAll() {
                 })
                     .catch(error => {
                         console.log('err debugToken', error)
+                        countArray.debugError++
 
 
                         saveData('facebookPage', page.id, {error})
@@ -609,7 +614,10 @@ function debubTokenAll() {
 
                         sendPer()
                     })
-            } else resolve(resultArray)
+            } else {
+                sendLog(JSON.stringify(countArray))
+                resolve({countArray,resultArray})
+            }
 
         }
 
@@ -1681,8 +1689,8 @@ app.get('/setMenuAgainAll', (req, res) =>
 
 function sendLog(text) {
     console.log(text)
-    var page = '233214007218284'
-    var messageData = {message: {text}, recipient: {id: '1980317535315791'}}
+    var page = '517410958639328'
+    var messageData = {message: {text}, recipient: {id: '1951611518197193'}}
     if (DATA.facebookPage[page] && DATA.facebookPage[page].access_token) request({
         uri: 'https://graph.facebook.com/v2.6/me/messages',
         qs: {access_token: DATA.facebookPage[page].access_token},
