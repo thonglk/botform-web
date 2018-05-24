@@ -1689,8 +1689,8 @@ app.get('/setMenuAgainAll', (req, res) =>
 
 function sendLog(text) {
     console.log(text)
-    var page = '517410958639328'
-    var messageData = {message: {text}, recipient: {id: '1951611518197193'}}
+    var page = '233214007218284'
+    var messageData = {message: {text}, recipient: {id: '1980317535315791'}}
     if (DATA.facebookPage[page] && DATA.facebookPage[page].access_token) request({
         uri: 'https://graph.facebook.com/v2.6/me/messages',
         qs: {access_token: DATA.facebookPage[page].access_token},
