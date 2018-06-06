@@ -540,7 +540,7 @@ app.get('/debugToken', ({query}, res) => debugToken(query.token).then(result => 
 function debubTokenAll() {
     var toArray = _.toArray(DATA.facebookPage)
     var resultArray = []
-    var countArray = {debugError:0,getlongError:0,getlong:0,debug:toArray.length}
+    var countArray = {debugError: 0, getlongError: 0, getlong: 0, debug: toArray.length}
     return new Promise((resolve, reject) => {
 
         var i = -1
@@ -553,7 +553,7 @@ function debubTokenAll() {
                 var page = toArray[i]
                 debugToken(page.access_token).then(result => {
                     console.log('debugToken', result)
-                    if(result.error){
+                    if (result.error) {
                         console.log('result.error debugToken', result.error)
                         countArray.debugError++
 
@@ -567,9 +567,9 @@ function debubTokenAll() {
                     } else {
                         var expires_at = result.expires_at * 1000
                         var esp = expires_at - Date.now()
-                        var two_day = 1000*60*60*24*2
+                        var two_day = 1000 * 60 * 60 * 24 * 2
 
-                        if(esp <  two_day) getLongLiveToken(page.access_token).then(token => {
+                        if (esp < two_day) getLongLiveToken(page.access_token).then(token => {
                             console.log('getLongLiveToken', token)
                             countArray.getlong++
 
@@ -579,9 +579,7 @@ function debubTokenAll() {
                                 .catch(err => reject(err))
 
 
-
                             sendPer()
-
 
 
                         }).catch(err => {
@@ -600,8 +598,6 @@ function debubTokenAll() {
                     }
 
 
-
-
                 })
                     .catch(error => {
                         console.log('err debugToken', error)
@@ -616,7 +612,7 @@ function debubTokenAll() {
                     })
             } else {
                 sendLog(JSON.stringify(countArray))
-                resolve({countArray,resultArray})
+                resolve({countArray, resultArray})
             }
 
         }
@@ -1584,6 +1580,28 @@ app.get('/setWhiteListDomain', ({query}, res) => setWhiteListDomain(query.domain
     .catch(err => res.status(500).json(err))
 );
 
+function updateRemove(pageID) {
+    return new Promise(function (resolve, reject) {
+        var pageData = DATA.removeBranding[pageID]
+        var access_token = pageData.access_token
+
+        if (!pageID || !access_token) reject({err: 'No PageID, access_token'})
+
+        graph.del('/me/messenger_profile?access_token=' + access_token, {fields: ["persistent_menu"]}, (err, result) => {
+            if (err) reject(err)
+            pageData.success = true
+            pageData.updatedAt = Date.now()
+            saveData('removeBranding', pageID, pageData)
+            resolve(result)
+
+
+        })
+
+    })
+
+}
+
+
 function removeChatfuelBranding(pageID) {
     return new Promise(function (resolve, reject) {
         var pageData = _.findWhere(getAllPage(), {id: pageID})
@@ -1591,29 +1609,16 @@ function removeChatfuelBranding(pageID) {
 
         if (!pageID || !access_token) reject({err: 'No PageID, access_token'})
 
-        saveData('removeBranding', pageID, {createdAt: Date.now(), pageID})
+        pageData.createdAt = Date.now()
+        saveData('removeBranding', pageID, pageData)
 
-        graph.get('/me/messenger_profile?fields=persistent_menu&access_token=' + access_token, (err, result) => {
+        graph.del('/me/messenger_profile?access_token=' + access_token, {fields: ["persistent_menu"]}, (err, result) => {
+            if (err) reject(err)
+            pageData.success = true
+            pageDate.updatedAt = Date.now()
+            saveData('removeBranding', pageID, pageData)
+            resolve(result)
 
-
-            if (result && result.data && result.data[0]) {
-                var menu = result.data[0]
-
-                menu.persistent_menu = menu.persistent_menu.map(per => {
-                    var call = per.call_to_actions
-                    var lastTitle = _.last(call).title.toLocaleLowerCase()
-                    if (lastTitle.match('manychat') || lastTitle.match('chatfuel')) call = _.initial(call)
-                    per.call_to_actions = call
-                    return per
-                })
-                console.log('newmenu', JSON.stringify(menu))
-
-                setDefautMenu(pageID, menu.persistent_menu, access_token)
-                    .then(result => saveData('removeBranding', pageID, {status: 'success'})
-                        .then(saveSuc => resolve({status: 'success', pageID})))
-                    .catch(err => saveData('removeBranding', pageID, {status: err}).then(saveSuc => reject(err)
-                    ))
-            }
 
         })
 
@@ -1634,7 +1639,7 @@ function removeRefresh() {
         var list = _.toArray(DATA.removeBranding)
         console.log('list', list)
         var promises = list.map(function (obj) {
-            return removeChatfuelBranding(obj.pageID)
+            return updateRemove(obj.pageID)
                 .then(results => {
                         return results
                     }
@@ -1890,6 +1895,7 @@ app.get('/dashBoard', ({query}, res) => {
     var pageData = DATA.facebookPage[query.pageID]
 
     pageData.bot = getBotfromPageID(query.pageID)
+
     res.send(pageData)
 })
 
@@ -1936,7 +1942,6 @@ app.get('/exe', ({query}, res) => {
     })
 
 })
-
 
 
 
