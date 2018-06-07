@@ -90,19 +90,7 @@ function templatelize(text = 'loading...', data = {first_name: 'Thông'}) {
 }
 
 
-function initDataLoad(ref, store) {
-    ref.on('child_added', function (snap) {
-        store[snap.key] = snap.val()
-    });
-    ref.on('child_changed', function (snap) {
-        store[snap.key] = snap.val()
-    });
-    ref.on('child_removed', function (snap) {
-        delete store[snap.key]
-    });
 
-
-}
 
 var DATA = {}
 
@@ -195,8 +183,7 @@ firebase.initializeApp({
 
 var db = firebase.database()
 
-var dataAccount = {}, accountRef = db.ref('account')
-initDataLoad(accountRef, dataAccount)
+
 
 
 initData('ladiBot')
@@ -448,30 +435,7 @@ var year = date.getFullYear()
 var start = `${day}/${month}/${year}`
 
 
-function updateRolesbyPage(pageID) {
-    var adminList = []
-    var userofPage = _.where(dataAccount, {pageID})
-    var facebookPage = DATA.facebookPage
-    var map = _.map(userofPage, user => {
-        if (facebookPage[pageID].roles && facebookPage[pageID].roles.data) {
-            var roles = facebookPage[pageID].roles.data
-            var admin = _.filter(roles, role => {
-                console.log('role', role.name, user.first_name, user.last_name)
-                if (user.first_name && user.last_name && role.name.match(user.first_name)
-                    && role.name.match(user.last_name)
-                ) return true
-            })
-            if (admin[0]) {
-                user.role = admin[0].role
-                adminList.push(user)
-            }
-        }
-    })
-    return {adminList, page: facebookPage[pageID]}
 
-}
-
-app.get('/updateRolesbyPage', ({query}, res) => res.send(updateRolesbyPage(query.pageID)))
 
 
 function getLongLiveToken(shortLiveToken) {
