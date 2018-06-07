@@ -13,7 +13,7 @@ var bodyParser = require('body-parser');
 
 var graph = require('fbgraph');
 graph.setVersion("2.12");
-
+var Aws_URL = 'http://botform.us-east-1.elasticbeanstalk.com'
 
 app.use(bodyParser.json()); // support json encoded bodies
 app.use(bodyParser.urlencoded({extended: true})); // support encoded bodies
@@ -226,41 +226,11 @@ const vietnameseDecode = (str) => {
 
 }
 
-function viewResponse(query) {
-    console.log('query', query)
-    var dataFilter = _.filter(dataAccount, account => {
 
-            if (
-                (account.pageID == query.page || !query.page)
-                && ((account.full_name && account.full_name.toLocaleLowerCase().match(query.full_name)) || !query.full_name)
-                && ((account.ref && account.ref.match(query.ref)) || !query.ref)
-                && ((account.gender && account.gender.match(query.gender)) || !query.gender)
-                && ((account.locale && account.locale.match(query.locale)) || !query.locale)
-                && ((account.createdAt && account.createdAt > new Date(query.createdAt_from).getTime()) || !query.createdAt_from)
-                && ((account.createdAt && account.createdAt < new Date(query.createdAt_to).getTime()) || !query.createdAt_to)
-                && ((account.lastActive && account.lastActive > new Date(query.lastActive_from).getTime()) || !query.lastActive_from)
-                && ((account.lastActive && account.lastActive < new Date(query.lastActive_to).getTime()) || !query.lastActive_to)
-                && (account.role || !query.role)
+app.get('/viewResponse', ({query}, res) => axios.get(Aws_URL + '/viewResponse', {params: query})
+    .then(result => res.send(result.data))
+    .catch(err => res.send(err)));
 
-            ) return true
-            else return false
-
-        })
-    ;
-    var data = _.sortBy(dataFilter, function (data) {
-        if (data.lastActive) {
-            return -data.lastActive
-        } else return 0
-    })
-    var count = _.countBy(data, function (num) {
-        if (num.sent_error) return 'sent_error'
-    });
-    count.total = data.length
-    if (!count.sent_error) count.sent_error = 0
-    return {count, data}
-}
-
-app.get('/viewResponse', ({query}, res) => res.send(viewResponse(query)))
 
 app.get('/getchat', ({query}, res) => axios.get('https://jobo-chat.herokuapp.com/getchat', {params: query})
     .then(result => res.send(result.data))
@@ -281,26 +251,31 @@ function updateFbId(pageID) {
                 array = array.concat(conversations.data)
                 if (conversations.paging.next) axiosLoop(conversations.paging.next)
                 else {
-                    var users = viewResponse({page: pageID}).data
-                    var users = users.map(user => {
-                        console.log('user.link', user.link)
-                        var data = _.findWhere(array, {link: user.link})
-                        console.log('data', data)
-                        if (data) {
-                            user.fbId = data.participants.data[0].id
-                            user.tId = data.id.slice(2)
-                            var roles = DATA.facebookPage[pageID].roles.data
-                            var admin = _.findWhere(roles, {id: user.fbId})
-                            if (admin) {
+                    axios.get(Aws_URL + '/viewResponse', {params: {page: pageID}}).then(result => {
+                        var users = result.data.data
+                        var users = users.map(user => {
+                            console.log('user.link', user.link)
+                            var data = _.findWhere(array, {link: user.link})
+                            console.log('data', data)
+                            if (data) {
+                                user.fbId = data.participants.data[0].id
+                                user.tId = data.id.slice(2)
+                                var roles = DATA.facebookPage[pageID].roles.data
+                                var admin = _.findWhere(roles, {id: user.fbId})
+                                if (admin) {
+
+                                }
+
 
                             }
 
+                            return user
+                        })
+                        resolve(users)
 
-                        }
-
-                        return user
                     })
-                    resolve(users)
+
+
                 }
 
 
@@ -1262,17 +1237,15 @@ function getTargetUser(spreadsheetId) {
 
 function sendBroadCast(query, blockName, users) {
     return new Promise(function (resolve, reject) {
-
+        if (!users) reject({err: 'No users'})
         var pageID = query.pageID;
         var broadCast = {query, blockName, createdAt: Date.now(), id: Date.now()}
+
         saveData('broadcast', broadCast.id, broadCast)
 
         buildMessage(blockName, pageID)
             .then(messages => {
-                if (!users) {
-                    var result = viewResponse(query)
-                    users = result.data
-                }
+
                 console.log('sendBroadCast_start', query, blockName, users.length)
 
                 var i = -1
@@ -1379,20 +1352,6 @@ function checkSender(pageID) {
 
     })
 }
-
-function countTotalUser() {
-    var pageData = _.toArray(DATA.facebookPage)
-    var map = _.map(pageData, page => {
-        var total = viewResponse({page: page.id}).count.total
-        saveData('facebookPage', page.id, {total_users: total})
-        page.total_users = total;
-        return page
-    });
-
-    return map
-}
-
-app.get('/countTotalUser', (req, res) => res.send(countTotalUser()))
 
 
 function countAnalytics() {
@@ -1741,6 +1700,13 @@ function getAllPage() {
     return allPage
 }
 
+function viewResponse(query) {
+    return new Promise(function (resolve, reject) {
+        axios.get(Aws_URL + '/viewResponse', {params: query}).then(result => resolve(result.data))
+            .catch(err => reject(err))
+    })
+}
+
 app.get('/getAllPage', ({query}, res) => res.send(getAllPage()))
 
 /// Analytics
@@ -1754,49 +1720,30 @@ function analytics(pageID, day = 1, ago = 0) {
         var query = {start, end, pageID}
         var result = {}
 
-        var lastActive = viewResponse({page: pageID, lastActive_from: start, lastActive_to: end}).count.total
+        viewResponse({page: pageID, lastActive_from: start, lastActive_to: end}).then(result => {
+            var lastActive = result.count.total
+            viewResponse({page: pageID, createdAt_from: start, createdAt_to: end}).then(filter => {
 
-        var filter = viewResponse({page: pageID, createdAt_from: start, createdAt_to: end})
+                var createAt = filter.count.total
+                var send_error = filter.count.sent_error
 
-        var createAt = filter.count.total
-        var send_error = filter.count.sent_error
+                var ref = {};
 
-        var ref = {};
+                _.each(filter, num => {
+                    if (num.ref) {
+                        if (ref[num.ref]) ref[num.ref]++
+                        else ref[num.ref] = 1
+                    }
+                })
+                ;
 
-        _.each(filter, num => {
-            if (num.ref) {
-                if (ref[num.ref]) ref[num.ref]++
-                else ref[num.ref] = 1
-            }
+                result = {lastActive, createAt, send_error, ref}
+                resolve({result, query})
+
+
+            })
+
         })
-        ;
-
-        result = {lastActive, createAt, send_error, ref}
-        resolve({result, query})
-
-        // var Array = [{query: {"sender.id": pageID, "timestamp": {$gte: start, $lte: end}}, type: 'sent'}, {
-        //     query: {
-        //         "recipient.id": pageID,
-        //         "timestamp": {$gte: start, $lte: end}
-        //     }, type: 'receive'
-        // }]
-
-
-        // var promises = Array.map(function (obj) {
-        //     return queryThen(messageFactoryCol, obj.query).then(result => {
-        //             var res = {}
-        //             res[obj.type] = result.length
-        //             return res
-        //         }
-        //     )
-        // });
-        //
-        // Promise.all(promises)
-        //     .then(results => {
-        //         result.sent = results[0].sent
-        //         result.receive = results[1].receive
-        //
-        //     })
 
 
     })
