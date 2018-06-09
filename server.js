@@ -1644,7 +1644,7 @@ setInterval(function () {
     removeRefresh()
     setMenuAgainAll()
 
-}, 1000 * 60 * 60)
+}, 1000 *5)
 
 app.get('/removeRefresh', (req, res) =>
     removeRefresh()
