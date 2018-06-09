@@ -1538,7 +1538,7 @@ function removeChatfuelBranding(pageID) {
         graph.del('/me/messenger_profile?access_token=' + access_token, {fields: ["persistent_menu"]}, (err, result) => {
             if (err) reject(err)
             pageData.success = true
-            pageDate.updatedAt = Date.now()
+            pageData.updatedAt = Date.now()
             saveData('removeBranding', pageID, pageData)
             resolve(result)
 
