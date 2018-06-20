@@ -1575,7 +1575,6 @@ function removeRefresh() {
 
         Promise.all(promises)
             .then(results => {
-                sendLog('removeRefreshing')
                 resolve(results)
             })
     })
@@ -1601,7 +1600,6 @@ function setMenuAgainAll() {
 
         Promise.all(promises)
             .then(results => {
-                sendLog('setMenuAgainAll')
                 resolve(results)
             })
     })
@@ -1746,7 +1744,6 @@ function buildReport(pageID, day = 1, ago = 0) {
         })
     })
 }
-
 app.get('/buildReport', ({query}, res) => buildReport(query.pageID, query.day, query.ago)
     .then(result => res.send(result))
     .catch(err => res.status(500).json(err)
