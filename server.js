@@ -90,8 +90,6 @@ function templatelize(text = 'loading...', data = {first_name: 'Thông'}) {
 }
 
 
-
-
 var DATA = {}
 
 function initData(ref) {
@@ -182,8 +180,6 @@ firebase.initializeApp({
 });
 
 var db = firebase.database()
-
-
 
 
 initData('ladiBot')
@@ -433,9 +429,6 @@ var day = date.getUTCDate()
 var month = date.getUTCMonth()
 var year = date.getFullYear()
 var start = `${day}/${month}/${year}`
-
-
-
 
 
 function getLongLiveToken(shortLiveToken) {
@@ -1613,28 +1606,38 @@ app.get('/setMenuAgainAll', (req, res) =>
         .catch(err => res.status(500).json(err)
         ))
 
+app.get('/sendLog', (req, res) => sendLog()
+        .then(result => res.send(result)
+        )
+        .catch(err => res.status(500).json(err)
+        ))
+
+
 function sendLog(text) {
-    console.log(text)
-    var page = '233214007218284'
-    var messageData = {message: {text}, recipient: {id: '1980317535315791'}}
-    if (DATA.facebookPage[page] && DATA.facebookPage[page].access_token) request({
-        uri: 'https://graph.facebook.com/v2.6/me/messages',
-        qs: {access_token: DATA.facebookPage[page].access_token},
-        method: 'POST',
-        json: messageData
+    return new Promise(function (resolve, reject) {
+        console.log(text)
+        var page = '233214007218284'
+        var messageData = {message: {text}, recipient: {id: '1980317535315791'}}
+        if (DATA.facebookPage[page] && DATA.facebookPage[page].access_token) request({
+            uri: 'https://graph.facebook.com/v2.6/me/messages',
+            qs: {access_token: DATA.facebookPage[page].access_token},
+            method: 'POST',
+            json: messageData
 
-    }, function (error, response, body) {
-        if (!error && response.statusCode == 200) {
-            var recipientId = body.recipient_id;
-            var messageId = body.message_id;
-            if (messageId) {
-                console.log("callSendAPI_success", messageId, recipientId);
+        }, function (error, response, body) {
+            if (!error && response.statusCode == 200) {
+                var recipientId = body.recipient_id;
+                var messageId = body.message_id;
+                if (messageId) {
+                    resolve({status:"callSendAPI_success", messageId, recipientId});
+
+                }
+            } else {
+                reject({status:"sendLog_err", body});
             }
-        } else {
-            console.log("sendLog_err", body);
+        });
+    })
 
-        }
-    });
 
 }
 
@@ -1642,7 +1645,7 @@ setInterval(function () {
     removeRefresh()
     setMenuAgainAll()
 
-}, 1000 *5)
+}, 1000 * 5)
 
 app.get('/removeRefresh', (req, res) =>
     removeRefresh()
@@ -1744,6 +1747,7 @@ function buildReport(pageID, day = 1, ago = 0) {
         })
     })
 }
+
 app.get('/buildReport', ({query}, res) => buildReport(query.pageID, query.day, query.ago)
     .then(result => res.send(result))
     .catch(err => res.status(500).json(err)

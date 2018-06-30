@@ -111,10 +111,10 @@
 
     console.log('custom_track', tracking)
 
-    window.ts = function ts(action = 'PageView',key,value) {
-        if(key && value)  tracking[key] = value
-        tracking.action = action
-        client.post(`https://customtracking.glitch.me/post?sheet=${sheet}&range=customtracking`, tracking,function (callback) {
+    window.ts = function ts(action = 'PageView', key, value) {
+        if (key && value) tracking[key] = value
+        tracking.action = action;
+        client.post(`https://customtracking.glitch.me/post?sheet=${sheet}&range=customtracking`, tracking, function (callback) {
             console.log(callback)
         })
     }
