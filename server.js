@@ -1606,7 +1606,7 @@ app.get('/setMenuAgainAll', (req, res) =>
         .catch(err => res.status(500).json(err)
         ))
 
-app.get('/sendLog', (req, res) => sendLog()
+app.get('/sendLog', ({query}, res) => sendLog(query.text)
         .then(result => res.send(result)
         )
         .catch(err => res.status(500).json(err)
