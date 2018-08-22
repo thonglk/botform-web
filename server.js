@@ -1641,11 +1641,7 @@ function sendLog(text) {
 
 }
 
-setInterval(function () {
-    removeRefresh()
-    setMenuAgainAll()
 
-}, 1000 * 5)
 
 app.get('/removeRefresh', (req, res) =>
     removeRefresh()
